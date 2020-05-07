@@ -11,7 +11,7 @@
 
 Pipe::Pipe() : fds{0, 0} {
     if (pipe(fds) == -1) {
-        LOG("Could not create pipe.");
+        DEB("Could not create pipe.");
     }
 }
 

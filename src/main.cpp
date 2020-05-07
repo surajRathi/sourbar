@@ -1,6 +1,5 @@
 #include "../include/log.h"
 
-#include "../include/subprocess.h"
 #include "../include/modules.h"
 
 
@@ -11,11 +10,6 @@
 #include<map>
 
 #include <fstream>
-
-
-const char *const lemon_cmd[] = {"lemonbar", "-f", "-misc-dejavu sans-medium-r-normal--0-100-0-0-p-9-ascii-0", "-f",
-                                 "-wuncon-siji-medium-r-normal--0-0-75-75-c-0-iso10646-1", "-F", "#F5F6F7", "-B",
-                                 "#90303642"};
 
 
 std::string CONFIG_FILENAME = "config";
@@ -36,7 +30,7 @@ bool clean(const std::string &line, size_t &start, size_t &end, const size_t &mi
 
 
 int main() {
-    LOG("Started");
+    DEB("Started");
 
     std::mutex mutex;
     std::vector<std::thread> threads;
@@ -47,13 +41,14 @@ int main() {
     if (!config_file.is_open())
         exit(1);
 
-    std::string line, section = "", key, value;
+    std::string line, section, key, value;
     size_t start_index, end_index, pos, key_end, value_start;
 
     modules::ModuleMap::const_iterator mod_iter;
     modules::Module module_func;
     modules::Options opts;
     modules::Options::const_iterator opt_iter;
+    modules::BarMap::const_iterator bar_iter;
 
     while (std::getline(config_file, line)) {
         start_index = 0;
@@ -62,10 +57,19 @@ int main() {
         if (!clean(line, start_index, end_index, 3)) continue;
         if ((line[start_index] == '[') && (line[end_index] == ']')) {
             if (!section.empty()) {
-                outputs.emplace_back();
-                threads.emplace_back(module_func,
-                                     std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
-                LOG("Started" << section << ".");
+                if (module_func != nullptr) {
+                    outputs.emplace_back();
+                    threads.emplace_back(module_func,
+                                         std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
+                    DEB("Started" << section << ".");
+                } else {
+                    bar_iter = modules::bars.find(section);
+                    if (bar_iter != modules::bars.end()) {
+                        threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), std::ref(opts));
+                        DEB("Started bar: " << section << ".");
+                        DEB(opts.at("font-1"));
+                    }
+                }
                 section = "";
             }
 
@@ -80,9 +84,8 @@ int main() {
                 section = "";
                 continue;
             }
-
-            std::tie(module_func, opts) = modules::module_map.at(section);
-            LOG("Section " << section << ":");
+            std::tie(module_func, opts) = mod_iter->second; // modules::module_map.at(section);
+            DEB("Section " << section << ":");
             continue;
         }
 
@@ -95,39 +98,43 @@ int main() {
             if (!clean(line, start_index, key_end, 1) || !clean(line, value_start, end_index, 1))
                 continue;
 
+            if (line[value_start] == '"' && line[end_index] == '"') {
+                value_start++;
+                end_index--;
+            }
+
             key = std::string(&line[start_index], &line[key_end + 1]);
             value = std::string(&line[value_start], &line[end_index + 1]);
             opt_iter = opts.find(key);
             if (opt_iter == opts.end()) continue;
 
             opts.at(key) = value;
-            LOG(section << "::" << key << " = " << value);
+            DEB(section << "::" << key << " = " << value);
         }
     }
     if (!section.empty()) {
-        outputs.emplace_back();
-        threads.emplace_back(module_func,
-                             std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
-        LOG("Started" << section << ".");
+        if (module_func != nullptr) {
+            outputs.emplace_back();
+            threads.emplace_back(module_func,
+                                 std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
+            DEB("Started" << section << ".");
+        } else {
+            bar_iter = modules::bars.find(section);
+            if (bar_iter != modules::bars.end()) {
+                threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), opts);
+                DEB("Started bar: " << section << ".");
+            }
+        }
         section = "";
     }
     config_file.close();
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // TODO: convert this to 'lemonbar' module.
-    Subprocess s(lemon_cmd);
-
-    while (true) {
-        mutex.lock();
-        s.stdin << outputs[0] << std::endl;
-        LOG("Tick");
-    }
-    s.send_eof();
-    s.wait();
 
 
     // TODO: Signal handling in main thread.
-    LOG("Finished");
+    for (auto &th : threads)
+        th.join();
+    DEB("Finished");
     return 0;
 }
