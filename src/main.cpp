@@ -42,6 +42,7 @@ int main() {
     std::vector<std::thread> threads;
     std::vector<std::string> outputs;
 
+    // TODO: Move this out.
     std::ifstream config_file(CONFIG_FILENAME);
     if (!config_file.is_open())
         exit(1);
@@ -114,7 +115,7 @@ int main() {
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // TODO: convert this to 'bar' modules.
+    // TODO: convert this to 'lemonbar' module.
     Subprocess s(lemon_cmd);
 
     while (true) {
@@ -126,6 +127,7 @@ int main() {
     s.wait();
 
 
+    // TODO: Signal handling in main thread.
     LOG("Finished");
     return 0;
 }
