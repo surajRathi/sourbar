@@ -11,24 +11,26 @@
 #include <mutex>
 #include "../include/log.h"
 
+/* Each module requires an entry in the module_map */
 
-namespace module {
+namespace modules {
     typedef void (*Module)(std::mutex &, std::string &, const std::map<std::string, std::string> &);
 
-    typedef std::map<std::string, std::string> OptionsMap;
+    typedef std::map<std::string, std::string> Options;
 
-    typedef const std::map<std::string, std::pair<Module, OptionsMap>> ModuleMap;
+    typedef const std::map<std::string, std::pair<Module, Options>> ModuleMap;
 
-    const OptionsMap time_opts = {
+
+    const Options clock_options = {
             {"color",    "#FFFFFF"},
             {"interval", "1"}
     };
 
-    [[noreturn]] void time(std::mutex &mutex, std::string &t, const OptionsMap &options);
+    [[noreturn]] void clock(std::mutex &mutex, std::string &t, const Options &options);
 
 
     ModuleMap module_map = {
-            {"time", std::make_pair(&time, time_opts)}
+            {"clock", std::make_pair(&clock, clock_options)}
     };
 }
 

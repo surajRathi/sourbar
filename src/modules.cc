@@ -7,7 +7,7 @@
 
 const size_t buffer_size = 20;
 
-[[noreturn]] void module::time(std::mutex &mutex, std::string &t, const OptionsMap &options) {
+[[noreturn]] void modules::clock(std::mutex &mutex, std::string &t, const Options &options) {
     LOG("Time module started.");
     char buffer[buffer_size];
     char format[] = "%H:%M:%S";

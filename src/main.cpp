@@ -15,7 +15,7 @@
 
 const char *const lemon_cmd[] = {"lemonbar", "-f", "-misc-dejavu sans-medium-r-normal--0-100-0-0-p-9-ascii-0", "-f",
                                  "-wuncon-siji-medium-r-normal--0-0-75-75-c-0-iso10646-1", "-F", "#F5F6F7", "-B",
-                                 "#303642"};
+                                 "#90303642"};
 
 
 std::string CONFIG_FILENAME = "config";
@@ -39,7 +39,6 @@ int main() {
     LOG("Started");
 
     std::mutex mutex;
-
     std::vector<std::thread> threads;
     std::vector<std::string> outputs;
 
@@ -50,10 +49,10 @@ int main() {
     std::string line, section = "", key, value;
     size_t start_index, end_index, pos, key_end, value_start;
 
-    module::ModuleMap::const_iterator mod_iter;
-    module::Module module_func;
-    module::OptionsMap opts;
-    module::OptionsMap::const_iterator opt_iter;
+    modules::ModuleMap::const_iterator mod_iter;
+    modules::Module module_func;
+    modules::Options opts;
+    modules::Options::const_iterator opt_iter;
 
     while (std::getline(config_file, line)) {
         start_index = 0;
@@ -75,16 +74,17 @@ int main() {
             if (!clean(line, start_index, end_index, 1)) continue;
             section = std::string(&line[start_index], &line[end_index + 1]);
 
-            mod_iter = module::module_map.find(section);
-            if (mod_iter == module::module_map.end()) {
+            mod_iter = modules::module_map.find(section);
+            if (mod_iter == modules::module_map.end()) {
                 section = "";
                 continue;
             }
 
-            std::tie(module_func, opts) = module::module_map.at(section);
+            std::tie(module_func, opts) = modules::module_map.at(section);
             LOG("Section " << section << ":");
             continue;
         }
+
         if (section.empty()) continue;
 
         pos = line.find('=', start_index);
@@ -102,9 +102,19 @@ int main() {
             opts.at(key) = value;
             LOG(section << "::" << key << " = " << value);
         }
-
     }
+    if (!section.empty()) {
+        outputs.emplace_back();
+        threads.emplace_back(module_func,
+                             std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
+        LOG("Started" << section << ".");
+        section = "";
+    }
+    config_file.close();
+
     std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // TODO: convert this to 'bar' modules.
     Subprocess s(lemon_cmd);
 
     while (true) {
