@@ -60,12 +60,12 @@ int main() {
                 if (module_func != nullptr) {
                     outputs.emplace_back();
                     threads.emplace_back(module_func,
-                                         std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
+                                         std::ref(mutex), std::ref(outputs.back()), opts);
                     DEB("Started" << section << ".");
                 } else {
                     bar_iter = modules::bars.find(section);
                     if (bar_iter != modules::bars.end()) {
-                        threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), std::ref(opts));
+                        threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), opts);
                         DEB("Started bar: " << section << ".");
                         DEB(opts.at("font-1"));
                     }
@@ -107,7 +107,6 @@ int main() {
             value = std::string(&line[value_start], &line[end_index + 1]);
             opt_iter = opts.find(key);
             if (opt_iter == opts.end()) continue;
-
             opts.at(key) = value;
             DEB(section << "::" << key << " = " << value);
         }
@@ -116,7 +115,7 @@ int main() {
         if (module_func != nullptr) {
             outputs.emplace_back();
             threads.emplace_back(module_func,
-                                 std::ref(mutex), std::ref(outputs.back()), std::ref(opts));
+                                 std::ref(mutex), std::ref(outputs.back()), opts);
             DEB("Started" << section << ".");
         } else {
             bar_iter = modules::bars.find(section);

@@ -14,9 +14,9 @@ namespace modules {
 
     typedef std::map<std::string, std::string> Options;
 
-    typedef void (*Module)(std::mutex &, std::string &, const Options &);
+    typedef void (*Module)(std::mutex &, std::string &, const Options);
 
-    typedef void (*Bar)(std::mutex &, std::vector<std::string> &, const Options &);
+    typedef void (*Bar)(std::mutex &, std::vector<std::string> &, const Options);
 
     typedef const std::map<std::string, std::pair<Module, Options>> ModuleMap;
     typedef const std::map<std::string, Bar> BarMap;
@@ -31,7 +31,7 @@ namespace modules {
     };
 
     [[noreturn]] void
-    lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const Options &options = lemonbar_options);
+    lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const Options options = lemonbar_options);
 
     // Changing an option name will be hell. enum with switch?
     const Options clock_options = {
@@ -41,7 +41,7 @@ namespace modules {
             {"format",     "%l:%M.%S %p"}
     };
 
-    [[noreturn]] void clock(std::mutex &mutex, std::string &output, const Options &options = clock_options);
+    [[noreturn]] void clock(std::mutex &mutex, std::string &output, const Options options = clock_options);
 
 
     ModuleMap module_map = {

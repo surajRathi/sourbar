@@ -10,7 +10,12 @@
 
 const size_t CLOCK_BUFFER_SIZE = 20;
 
-void modules::clock(std::mutex &mutex, std::string &output, const Options &options) {
+void modules::clock(std::mutex &mutex, std::string &output, const Options options) {
+    for (auto &key : options)
+        DEB("BB" << key.first << key.second);
+    DEB("");
+
+
     const char *format = options.at("format").data();
     std::string prefix, suffix;
 
@@ -56,10 +61,13 @@ void modules::clock(std::mutex &mutex, std::string &output, const Options &optio
 }
 
 
-void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const modules::Options &options) {
-    DEB("AA" << options.find("font-1")->second << " " << options.size());
+void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const modules::Options options) {
+    for (auto &key : options)
+        DEB("AA" << key.first << key.second);
+    DEB("");
+
     const char *const lemon_cmd[] = {
-            "lemonbar", //"-f", "-misc-dejavu sans-medium-r-normal--0-100-0-0-p-9-ascii-0"
+            "lemonbar",
             "-n", options.at("name").data(),
             "-f", options.at("font-1").data(),
             "-f", options.at("font-2").data(),
