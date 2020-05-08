@@ -1,7 +1,3 @@
-//
-// Created by suraj on 5/6/20.
-//
-
 #include "../include/subprocess.h"
 
 #include <unistd.h>
