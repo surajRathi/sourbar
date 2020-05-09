@@ -25,6 +25,8 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
     if (!config_file.is_open())
         exit(1);
 
+
+    bool bar = false;
     std::string line, section, key, value;
     size_t start_index, end_index, pos, key_end, value_start;
 
@@ -45,10 +47,11 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
                     outputs.emplace_back();
                     threads.emplace_back(module_func, std::ref(mutex), std::ref(outputs.back()), opts);
                     DEB("Started" << section << ".");
-                } else {
+                } else if (!bar) {
                     bar_iter = modules::bars.find(section);
                     if (bar_iter != modules::bars.end()) {
                         threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), opts);
+                        bar = true;
                         DEB("Started bar: " << section << ".");
                     }
                 }
@@ -97,15 +100,19 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
             outputs.emplace_back();
             threads.emplace_back(module_func, std::ref(mutex), std::ref(outputs.back()), opts);
             DEB("Started" << section << ".");
-        } else {
+        } else if (!bar) {
             bar_iter = modules::bars.find(section);
             if (bar_iter != modules::bars.end()) {
                 threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), opts);
+                bar = true;
                 DEB("Started bar: " << section << ".");
             }
         }
         section = "";
     }
+
+    if (!bar) ERR("No bar started.");
+
     config_file.close();
 
 }
