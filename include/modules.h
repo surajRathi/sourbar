@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <mutex>
@@ -13,14 +14,14 @@
 namespace modules {
     extern bool is_ok;
 
-    typedef std::map<std::string, std::string> Options;
+    typedef std::map<std::string_view, std::string> Options;
 
     typedef void (*Module)(std::mutex &, std::string &, const Options);
 
     typedef void (*Bar)(std::mutex &, std::vector<std::string> &, const Options);
 
-    typedef const std::map<std::string, std::pair<Module, Options>> ModuleMap;
-    typedef const std::map<std::string, Bar> BarMap;
+    typedef const std::map<std::string_view, std::pair<Module, Options>> ModuleMap;
+    typedef const std::map<std::string_view, Bar> BarMap;
 
 
     const modules::Options lemonbar_options = {
