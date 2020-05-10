@@ -1,12 +1,7 @@
-#include <vector>
-#include <string>
 #include "../include/modules.h"
-
-#include "../include/log.h"
 #include "../include/subprocess.h"
 
 #include <thread>
-#include <mutex>
 
 #include <ctime>
 
@@ -14,23 +9,33 @@ bool modules::is_ok = true;
 
 std::pair<std::string, std::string> colorwrap(const modules::Options &options) {
     std::string prefix, suffix;
-    const std::string &color = options.at("color");
-    const std::string &background = options.at("background");
-    // TODO: Sanitize and check color. no '%', '{', '}'.
-    if (!color.empty()) {
-        prefix += "%{F" + color + "}";
-        suffix = "%{F-}" + suffix;
+    try {
+        DEB("colorwrapp_accessing");
+        const std::string &color = options.at("color");
+        const std::string &background = options.at("background");
+        // TODO: Sanitize and check color. no '%', '{', '}'.
+
+        DEB("colorwrapp_accessed");
+        if (!color.empty()) {
+            prefix += "%{F" + color + "}";
+            suffix = "%{F-}" + suffix;
+        }
+        if (!background.empty()) {
+            prefix += "%{B" + background + "}";
+            suffix = "%{B-}" + suffix;
+        }
+        return std::make_pair(prefix, suffix);
+    } catch (const std::out_of_range &e) {
+        return std::make_pair(prefix, suffix);
     }
-    if (!background.empty()) {
-        prefix += "%{B" + background + "}";
-        suffix = "%{B-}" + suffix;
-    }
-    return std::make_pair(prefix, suffix);
+
 }
 
 const size_t CLOCK_BUFFER_SIZE = 30;
 
-void modules::clock(std::mutex &mutex, std::string &output, const Options options) {
+void modules::clock(std::mutex &mutex, std::string &output, const Options &options) {
+    DEB("[clock]" << "__ " << &options);
+    DEB("[clock]" << options.size());
     const auto&[prefix, suffix] = colorwrap(options);
 
     const char *format = options.at("format").data();
@@ -40,15 +45,13 @@ void modules::clock(std::mutex &mutex, std::string &output, const Options option
     std::chrono::duration<int64_t> interval = std::chrono::seconds(1);
     try {
         // TODO: add float intervals -> milliseconds
-        //float opt = std::atof(options.at("interval").data());
-        //interval = std::chrono::milliseconds(100 * opt);
         interval = std::chrono::seconds(std::stol(options.at("interval")));
     } catch (const std::exception &e) { // std::invalid_argument & std::out_of_range
         //interval = std::chrono::seconds(1);
         ERR("Invalid duration: " << options.at("interval"));
     }
 
-    INFO("[clock] Started @ " << std::this_thread::get_id());
+    INFO("[clock] Started @ " << (size_t) &options % 1000 << " ");
 
     while (modules::is_ok) {
         time = std::time(nullptr);
@@ -59,14 +62,20 @@ void modules::clock(std::mutex &mutex, std::string &output, const Options option
         output += suffix;
 
         mutex.unlock();
-        DEB("sleeping: " << std::this_thread::get_id());
+        DEB("sleeping: " << (size_t) &options % 1000 << " ");
         std::this_thread::sleep_for(interval);
-        DEB("woke: " << std::this_thread::get_id());
+        DEB("woke: " << (size_t) &options % 1000 << " ");
     }
 }
 
 
-void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const modules::Options options) {
+void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const Options & options) {
+    DEB("[lemonbar]" << "__ " << &options);
+    DEB("[lemonabar]" << options.size());
+    for (auto &opt : options) {
+        DEB("[lemonbar]" << " " << opt.first << " " << opt.second);
+    }
+
     const char *const lemon_cmd[] = {
             "lemonbar",
             "-n", options.at("name").data(),
@@ -75,6 +84,8 @@ void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, con
             "-F", options.at("color").data(),
             "-B", options.at("background").data()
     };
+
+    DEB("[lemonbar]" << " got command");
 
     bool force_sleep;
     auto force_sleep_interval = std::chrono::milliseconds(0);
@@ -111,7 +122,22 @@ void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, con
     s.wait();
 }
 
-void modules::text(std::mutex &mutex, std::string &output, const modules::Options options) {
+void modules::text(std::mutex &mutex, std::string &output, const modules::Options &options) {
+    DEB("[text]" << "__ " << &options);
+    DEB("[text]" << options.size());
+    DEB((size_t) &options % 1000);// << " " << "Checking opts");
+
+    for (auto &opt : options) {
+        DEB(((size_t) &options % 1000) * 100);//<< " " << " " << opt.first << " " << opt.second);
+    }
+
+    DEB((size_t) &options % 1000);// << " " << "Wrapping.");
     const auto&[prefix, suffix] = colorwrap(options);
+    DEB((size_t) &options % 1000);// << " " << "Wrapped");
     output = prefix + options.at("text") + suffix;
+
+    DEB((size_t) &options % 1000);// << " " << "outputed");
+    mutex.unlock();
+
+    DEB((size_t) &options % 1000);// << " " << "done");
 }

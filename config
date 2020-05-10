@@ -1,0 +1,14 @@
+# A config file for testing..
+
+# all rights not reserved lol
+[lemonbar]
+
+
+[text]
+text = "bbbbb"
+
+[text]
+text = "%{c}"
+
+[text]
+text = "aaa"

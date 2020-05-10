@@ -1,7 +1,4 @@
 #include "../include/config.h"
-
-#include "../include/modules.h"
-
 #include <fstream>
 
 bool clean(const std::string &line, size_t &start, size_t &end, const size_t &min_len = 0,
@@ -18,9 +15,11 @@ bool clean(const std::string &line, size_t &start, size_t &end, const size_t &mi
     return start + min_len <= end + 1;
 }
 
-
+// TODO : rewrite with string view.
 void load_config(const char *filename, std::vector<std::thread> &threads, std::vector<std::string> &outputs,
+                 std::vector<modules::Options> &options,
                  std::mutex &mutex) {
+
     std::ifstream config_file(filename);
     if (!config_file.is_open())
         exit(1);
@@ -32,8 +31,7 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
 
     modules::ModuleMap::const_iterator mod_iter;
     modules::Module module_func = nullptr;
-    modules::Options opts;
-    modules::Options::const_iterator opt_iter;
+    modules::Options::iterator opt_iter;
     modules::BarMap::const_iterator bar_iter;
 
     while (std::getline(config_file, line)) {
@@ -45,14 +43,20 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
             if (!section.empty()) {
                 if (module_func != nullptr) {
                     outputs.emplace_back();
-                    threads.emplace_back(module_func, std::ref(mutex), std::ref(outputs.back()), opts);
-                    DEB("Started" << section << ".");
+                    DEB(options.back().size());
+                    DEB(&options.back());
+                    threads.emplace_back(module_func, std::ref(mutex), std::ref(outputs.back()),
+                                         std::ref(options.back()));
+                    // DEB("Started module: " << section << ".");
                 } else if (!bar) {
                     bar_iter = modules::bars.find(section);
                     if (bar_iter != modules::bars.end()) {
-                        threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), opts);
+                        DEB(options.back().size());
+                        DEB(&options.back());
+                        threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs),
+                                             std::ref(options.back()));
                         bar = true;
-                        DEB("Started bar: " << section << ".");
+                        // DEB("Started bar: " << section << ".");
                     }
                 }
                 section = "";
@@ -69,7 +73,10 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
                 section = "";
                 continue;
             }
-            std::tie(module_func, opts) = mod_iter->second; // modules::module_map.at(section);
+            auto &_x = mod_iter->second; // modules::module_map.at(section);
+            module_func = _x.first;
+            options.emplace_back(_x.second); // explicitly copy
+            // If i dont do ^ this,
             continue;
         }
 
@@ -89,22 +96,23 @@ void load_config(const char *filename, std::vector<std::thread> &threads, std::v
 
             key = std::string(&line[start_index], &line[key_end + 1]);
             value = std::string(&line[value_start], &line[end_index + 1]);
-            opt_iter = opts.find(key);
-            if (opt_iter == opts.end()) continue;
-            opts.at(key) = value; // TODO: Sanitize
+            opt_iter = options.back().find(key);
+            if (opt_iter == options.back().end()) continue;
+            //options.back().at(key) = value; // TODO: Sanitize
+            opt_iter->second = value;
             // DEB(section << "::" << key << " = " << value);
         }
     }
     if (!section.empty()) { // TODO: move to function repeated from loop.
         if (module_func != nullptr) {
             outputs.emplace_back();
-            threads.emplace_back(module_func, std::ref(mutex), std::ref(outputs.back()), opts);
-            DEB("Started" << section << ".");
+            threads.emplace_back(module_func, std::ref(mutex), std::ref(outputs.back()), std::ref(options.back()));
+            // DEB("Started" << section << ".");
         } else if (!bar) {
             bar_iter = modules::bars.find(section);
             if (bar_iter != modules::bars.end()) {
-                threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), opts);
-                bar = true;
+                threads.emplace_back(bar_iter->second, std::ref(mutex), std::ref(outputs), std::ref(options.back()));
+                // bar = true;
                 DEB("Started bar: " << section << ".");
             }
         }
