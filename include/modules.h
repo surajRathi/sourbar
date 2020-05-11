@@ -6,7 +6,8 @@
 #include <string_view>
 #include <vector>
 
-#include <mutex>
+#include <shared_mutex>
+#include <memory>
 #include "../include/log.h"
 
 /* Each module requires an entry in the module_map */
@@ -17,9 +18,9 @@ namespace modules {
     //typedef std::map<std::string_view, std::string> Options;
     typedef std::map<const std::string, std::string> Options;
 
-    typedef void (*Module)(std::mutex &, std::string &, const Options &);
+    typedef void (*Module)(std::mutex &, std::shared_mutex &, std::string &, const Options &);
 
-    typedef void (*Bar)(std::mutex &, std::vector<std::string> &, const Options &);
+    typedef void (*Bar)(std::mutex &, std::shared_mutex &, std::vector<std::unique_ptr<std::string>> &, const Options &);
 
     //typedef const std::map<std::string_view, std::pair<Module, Options>> ModuleMap;
     //    typedef const std::map<std::string_view, Bar> BarMap;
@@ -35,7 +36,9 @@ namespace modules {
             {"force_sleep_interval", ""}
     };
 
-    void lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const Options &options = lemonbar_options);
+    void lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
+                           std::vector<std::unique_ptr<std::string>> &outputs,
+                           const Options &options = lemonbar_options);
 
     // Changing an option name will be hell. enum with switch?
     const Options clock_options = {
@@ -45,7 +48,7 @@ namespace modules {
             {"format",     "%l:%M.%S %p"}
     };
 
-    void clock(std::mutex &mutex, std::string &output, const Options &options = clock_options);
+    void clock(std::mutex &mutex,std::shared_mutex &, std::string &output, const Options &options = clock_options);
 
 
     const Options text_options = {
@@ -54,7 +57,7 @@ namespace modules {
             {"text",       ""}
     };
 
-    void text(std::mutex &mutex, std::string &output, const Options &options = text_options);
+    void text(std::mutex &mutex,std::shared_mutex &, std::string &output, const Options &options = text_options);
 
     ModuleMap module_map = {
             {"clock",    std::make_pair(&clock, clock_options)},

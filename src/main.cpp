@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include <thread>
-#include <mutex>
+#include <shared_mutex>
 
 #include <filesystem>
 
@@ -16,14 +16,15 @@ const char *const config_files_hierarchy[] = {
 int main() {
     DEB("Started");
 
-    std::mutex mutex;
+    std::mutex wake_mutex;
+    std::shared_mutex data_mutex;
     std::vector<std::thread> threads;
-    std::vector<std::string> outputs;
-    std::vector<modules::Options> options;
+    std::vector<std::unique_ptr<std::string>> outputs;
+    std::vector<std::unique_ptr<modules::Options>> options;
 
     for (auto &filename : config_files_hierarchy) {
         if (std::filesystem::exists(std::filesystem::path(filename))) {
-            load_config(filename, threads, outputs, options, mutex);
+            load_config(filename, threads, outputs, options, wake_mutex, data_mutex);
             break;
         }
     }

@@ -10,6 +10,7 @@
 #include <iostream>
 
 #define DEB(x) std::cout << x << std::endl
+
 #else
 #define DEB(x)
 #endif //NDEBUG

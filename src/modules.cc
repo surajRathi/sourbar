@@ -4,18 +4,17 @@
 #include <thread>
 
 #include <ctime>
+#include <shared_mutex>
 
 bool modules::is_ok = true;
 
 std::pair<std::string, std::string> colorwrap(const modules::Options &options) {
     std::string prefix, suffix;
-    try {
-        DEB("colorwrapp_accessing");
+    try {  // try-catch not req.
         const std::string &color = options.at("color");
         const std::string &background = options.at("background");
         // TODO: Sanitize and check color. no '%', '{', '}'.
 
-        DEB("colorwrapp_accessed");
         if (!color.empty()) {
             prefix += "%{F" + color + "}";
             suffix = "%{F-}" + suffix;
@@ -33,9 +32,8 @@ std::pair<std::string, std::string> colorwrap(const modules::Options &options) {
 
 const size_t CLOCK_BUFFER_SIZE = 30;
 
-void modules::clock(std::mutex &mutex, std::string &output, const Options &options) {
-    DEB("[clock]" << "__ " << &options);
-    DEB("[clock]" << options.size());
+void
+modules::clock(std::mutex &wake_mutex, std::shared_mutex &data_mutex, std::string &output, const Options &options) {
     const auto&[prefix, suffix] = colorwrap(options);
 
     const char *format = options.at("format").data();
@@ -51,31 +49,33 @@ void modules::clock(std::mutex &mutex, std::string &output, const Options &optio
         ERR("Invalid duration: " << options.at("interval"));
     }
 
-    INFO("[clock] Started @ " << (size_t) &options % 1000 << " ");
+    INFO("[clock@" << (size_t) &options % 1000 << "] " << "Started");
 
     while (modules::is_ok) {
         time = std::time(nullptr);
-        if (!std::strftime(buffer, CLOCK_BUFFER_SIZE - 1, format, std::localtime(&time)))
-            continue;
-        output = prefix;
-        output += buffer;
-        output += suffix;
+        if (!std::strftime(buffer, CLOCK_BUFFER_SIZE - 1, format, std::localtime(&time))) {
+            ERR("[clock@" << (size_t) &options % 1000 << "] " << "Cant format time.");
+            std::shared_lock<std::shared_mutex> lock(data_mutex);
+            output = "";
+            return;
+        }
 
-        mutex.unlock();
-        DEB("sleeping: " << (size_t) &options % 1000 << " ");
+        {
+            std::shared_lock<std::shared_mutex> lock(data_mutex);
+            output = prefix + buffer + suffix;
+        }
+
+        wake_mutex.unlock();
         std::this_thread::sleep_for(interval);
-        DEB("woke: " << (size_t) &options % 1000 << " ");
     }
+    INFO("[clock@" << (size_t) &options % 1000 << "] " << "Done");
 }
 
 
-void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, const Options & options) {
-    DEB("[lemonbar]" << "__ " << &options);
-    DEB("[lemonabar]" << options.size());
-    for (auto &opt : options) {
-        DEB("[lemonbar]" << " " << opt.first << " " << opt.second);
-    }
-
+void
+modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
+                  std::vector<std::unique_ptr<std::string>> &outputs,
+                  const Options &options) {
     const char *const lemon_cmd[] = {
             "lemonbar",
             "-n", options.at("name").data(),
@@ -85,7 +85,6 @@ void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, con
             "-B", options.at("background").data()
     };
 
-    DEB("[lemonbar]" << " got command");
 
     bool force_sleep;
     auto force_sleep_interval = std::chrono::milliseconds(0);
@@ -101,14 +100,21 @@ void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, con
 
     INFO("[lemonbar] Started");
 
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    INFO("[lemonbar] Running");
+
+
     while (modules::is_ok) {
-        mutex.lock(); // This mutex should only be unlocked by other threads when new output is availible.
-        DEB("Tick");
+        wake_mutex.lock(); // This mutex should only be unlocked by other threads when new output is availible.
 
-        for (std::string &output : outputs)
-            s.stdin << output;
+        {
+            std::unique_lock<std::shared_mutex> lock(data_mutex);
+            for (auto &output : outputs)
+                s.stdin << *output;
+        }
         s.stdin << std::endl;
-
+        DEB("tick");
 
         char buffer[20] = "";
         s.stdout.readsome(buffer, 20);
@@ -122,22 +128,17 @@ void modules::lemonbar(std::mutex &mutex, std::vector<std::string> &outputs, con
     s.wait();
 }
 
-void modules::text(std::mutex &mutex, std::string &output, const modules::Options &options) {
-    DEB("[text]" << "__ " << &options);
-    DEB("[text]" << options.size());
-    DEB((size_t) &options % 1000);// << " " << "Checking opts");
+void
+modules::text(std::mutex &wake_mutex, std::shared_mutex &data_mutex, std::string &output,
+              const modules::Options &options) {
+    const auto&[prefix, suffix] = colorwrap(options);
 
-    for (auto &opt : options) {
-        DEB(((size_t) &options % 1000) * 100);//<< " " << " " << opt.first << " " << opt.second);
+    INFO("[text@" << (size_t) &options % 1000 << "] " << "Started");
+    {
+        std::shared_lock<std::shared_mutex> lock(data_mutex);
+        output = prefix + options.at("text") + suffix;
     }
 
-    DEB((size_t) &options % 1000);// << " " << "Wrapping.");
-    const auto&[prefix, suffix] = colorwrap(options);
-    DEB((size_t) &options % 1000);// << " " << "Wrapped");
-    output = prefix + options.at("text") + suffix;
-
-    DEB((size_t) &options % 1000);// << " " << "outputed");
-    mutex.unlock();
-
-    DEB((size_t) &options % 1000);// << " " << "done");
+    wake_mutex.unlock();
+    INFO("[text@" << (size_t) &options % 1000 << "] " << "Done");
 }
