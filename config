@@ -1,14 +1,22 @@
 # A config file for testing..
 
 # all rights not reserved lol
+
+[text]
+text="%{c}"
+
+[clock]
+interval=2
+
+[text]
+text = "%{r}"
+
+[text]
+text="aa"
+
+[clock]
+interval = 1
+
 [lemonbar]
-
-
-[text]
-text = "bbbbb"
-
-[text]
-text = "%{c}"
-
-[text]
-text = "aaa"
+color= "#F5F6F7"
+background="#90303642"

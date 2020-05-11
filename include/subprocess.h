@@ -18,12 +18,11 @@ public:
 
 
 class Subprocess {
-    Pipe read_pipe, write_pipe; // In subprocess terms.
+    Pipe read_pipe, write_pipe; // In child process terminology.
 
 public:
-    int pid; // = -1;
+    int pid;
 
-    // black magic
     std::unique_ptr<__gnu_cxx::stdio_filebuf<char>> stdin_buffer;
     std::unique_ptr<__gnu_cxx::stdio_filebuf<char>> stdout_buffer;
 

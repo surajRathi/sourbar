@@ -1,11 +1,9 @@
 #include "../include/subprocess.h"
 
+#include "../include/log.h"
+
 #include <unistd.h>
 #include <sys/wait.h>
-
-#include <memory>
-
-#include "../include/log.h"
 
 Pipe::Pipe() : fds{0, 0} {
     if (pipe(fds) == -1) {
@@ -53,7 +51,6 @@ Subprocess::Subprocess(const char *const *argv /*= nullptr*/, const char *const 
     }
 }
 
-// Dunno why this is const im doing an operation on member variable
 void Subprocess::send_eof() const {
     stdin_buffer->close();
 }

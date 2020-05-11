@@ -3,14 +3,14 @@
 
 #include "../include/modules.h"
 
-#include <string>
 #include <vector>
+
 #include <thread>
+#include <string>
 #include <mutex>
 #include <shared_mutex>
-#include <mutex>
 
-void load_config(const char *filename,
+bool load_config(const char *filename,
                  std::vector<std::thread> &threads,
                  std::vector<std::unique_ptr<std::string>> &outputs,
                  std::vector<std::unique_ptr<modules::Options>> &options,

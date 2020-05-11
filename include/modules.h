@@ -12,43 +12,35 @@
 
 /* Each module requires an entry in the module_map */
 
+// TODO: don't initialize string for each map key. use string_view?
+// Changing an option name will be hell. enum with Lookup table?
+// TODO: Encapsulate the data mutex and setting of output.
+
 namespace modules {
     extern bool is_ok;
 
-    //typedef std::map<std::string_view, std::string> Options;
     typedef std::map<const std::string, std::string> Options;
 
     typedef void (*Module)(std::mutex &, std::shared_mutex &, std::string &, const Options &);
 
-    typedef void (*Bar)(std::mutex &, std::shared_mutex &, std::vector<std::unique_ptr<std::string>> &, const Options &);
+    typedef void (*Bar)(std::mutex &, std::shared_mutex &, std::vector<std::unique_ptr<std::string>> &,
+                        const Options &);
 
-    //typedef const std::map<std::string_view, std::pair<Module, Options>> ModuleMap;
-    //    typedef const std::map<std::string_view, Bar> BarMap;
     typedef const std::map<std::string, std::pair<Module, Options>> ModuleMap;
     typedef const std::map<std::string, Bar> BarMap;
 
     const Options lemonbar_options = {
             {"name",                 "lemonbar"},
-            {"color",                "#F5F6F7"},
-            {"background",           "#90303642"},
+            {"color",                "#FFFFFF"},
+            {"background",           "#000000"},
             {"font-1",               "-misc-dejavu sans-medium-r-normal--0-100-0-0-p-9-ascii-0"},
             {"font-2",               "-wuncon-siji-medium-r-normal--0-0-75-75-c-0-iso10646-1"},
             {"force_sleep_interval", ""}
     };
 
     void lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
-                           std::vector<std::unique_ptr<std::string>> &outputs,
-                           const Options &options = lemonbar_options);
-
-    // Changing an option name will be hell. enum with switch?
-    const Options clock_options = {
-            {"color",      ""},
-            {"background", ""},
-            {"interval",   "10"},
-            {"format",     "%l:%M.%S %p"}
-    };
-
-    void clock(std::mutex &mutex,std::shared_mutex &, std::string &output, const Options &options = clock_options);
+                  std::vector<std::unique_ptr<std::string>> &outputs,
+                  const Options &options = lemonbar_options); // In modules_lemonbar.cc
 
 
     const Options text_options = {
@@ -57,7 +49,17 @@ namespace modules {
             {"text",       ""}
     };
 
-    void text(std::mutex &mutex,std::shared_mutex &, std::string &output, const Options &options = text_options);
+    void text(std::mutex &mutex, std::shared_mutex &, std::string &output, const Options &options = text_options);
+
+    const Options clock_options = {
+            {"color",      ""},
+            {"background", ""},
+            {"interval",   "10"},
+            {"format",     "%l:%M.%S %p"}
+    };
+
+    void clock(std::mutex &mutex, std::shared_mutex &, std::string &output, const Options &options = clock_options);
+
 
     ModuleMap module_map = {
             {"clock",    std::make_pair(&clock, clock_options)},

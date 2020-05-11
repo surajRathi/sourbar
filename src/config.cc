@@ -1,6 +1,7 @@
 #include "../include/config.h"
 #include <fstream>
 
+// Convert parse process to use string_view on each line.
 bool clean(const std::string &line, size_t &start, size_t &end, const size_t &min_len = 0,
            const char *whitespace = " \t") {
     if (start + min_len > end + 1) return false;
@@ -16,18 +17,22 @@ bool clean(const std::string &line, size_t &start, size_t &end, const size_t &mi
 }
 
 // TODO : rewrite with string view.
-void load_config(const char *filename,
+// TODO : Support comments at the end of line, while respecting '#' in strings ( "<foo>" )
+bool load_config(const char *filename,
                  std::vector<std::thread> &threads,
                  std::vector<std::unique_ptr<std::string>> &outputs,
                  std::vector<std::unique_ptr<modules::Options>> &options,
                  std::mutex &wake_mutex, std::shared_mutex &data_mutex) {
 
     std::ifstream config_file(filename);
-    if (!config_file.is_open())
-        exit(1);
-
+    if (!config_file.is_open()) {
+        ERR("Cant open config_file: " << filename);
+        return false;
+    }
 
     bool bar = false;
+
+    // Simplify with string_view
     std::string line, section, key, value;
     size_t start_index, end_index, pos, key_end, value_start;
 
@@ -45,11 +50,9 @@ void load_config(const char *filename,
             if (!section.empty()) {
                 if (module_func != nullptr) {
                     outputs.push_back(std::make_unique<std::string>());
-                    DEB("String:" << &*outputs.back());
                     threads.emplace_back(module_func, std::ref(wake_mutex), std::ref(data_mutex),
                                          std::ref(*outputs.back()),
                                          std::ref(*options.back()));
-                    // DEB("Started module: " << section << ".");
                 } else if (!bar) {
                     bar_iter = modules::bars.find(section);
                     if (bar_iter != modules::bars.end()) {
@@ -57,7 +60,6 @@ void load_config(const char *filename,
                                              std::ref(outputs),
                                              std::ref(*options.back()));
                         bar = true;
-                        // DEB("Started bar: " << section << ".");
                     }
                 }
                 section = "";
@@ -77,6 +79,8 @@ void load_config(const char *filename,
             auto &_x = mod_iter->second; // modules::module_map.at(section);
             module_func = _x.first;
             options.push_back(std::make_unique<modules::Options>(_x.second));
+
+            INFO("Found module: " << section);
             continue;
         }
 
@@ -106,21 +110,20 @@ void load_config(const char *filename,
             outputs.emplace_back();
             threads.emplace_back(module_func, std::ref(wake_mutex), std::ref(data_mutex), std::ref(*outputs.back()),
                                  std::ref(*options.back()));
-            // DEB("Started" << section << ".");
         } else if (!bar) {
             bar_iter = modules::bars.find(section);
             if (bar_iter != modules::bars.end()) {
                 threads.emplace_back(bar_iter->second, std::ref(wake_mutex), std::ref(data_mutex), std::ref(outputs),
                                      std::ref(*options.back()));
                 bar = true;
-                DEB("Started bar: " << section << ".");
             }
         }
         section = "";
     }
 
-    if (!bar) ERR("No bar started.");
-
     config_file.close();
 
+    if (!bar) ERR("No bar started.");
+
+    return bar;
 }
