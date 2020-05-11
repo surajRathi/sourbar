@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include <memory>
+
 #include "../include/log.h"
 
 Pipe::Pipe() : fds{0, 0} {
@@ -43,10 +45,8 @@ Subprocess::Subprocess(const char *const *argv /*= nullptr*/, const char *const 
         close(write_pipe.write_fd());
         close(read_pipe.read_fd());
 
-        stdin_buffer = std::unique_ptr<__gnu_cxx::stdio_filebuf<char> >(
-                new __gnu_cxx::stdio_filebuf<char>(read_pipe.write_fd(), std::ios::out));
-        stdout_buffer = std::unique_ptr<__gnu_cxx::stdio_filebuf<char> >(
-                new __gnu_cxx::stdio_filebuf<char>(write_pipe.read_fd(), std::ios::in));
+        stdin_buffer = std::make_unique<__gnu_cxx::stdio_filebuf<char> >(read_pipe.write_fd(), std::ios::out);
+        stdout_buffer = std::make_unique<__gnu_cxx::stdio_filebuf<char> >(write_pipe.read_fd(), std::ios::in);
 
         stdin.rdbuf(stdin_buffer.get());
         stdout.rdbuf(stdout_buffer.get());
