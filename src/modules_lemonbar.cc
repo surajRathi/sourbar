@@ -3,6 +3,13 @@
 
 #include <thread>
 
+void lemonbar_output_handler(std::istream &stdout) {
+    std::string line;
+    while (std::getline(stdout, line)) {
+        INFO("Lemonbar -> " << line);
+    }
+}
+
 void modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
                        std::vector<std::unique_ptr<std::string>> &outputs, const Options &options) {
     const char *const lemon_cmd[] = {
@@ -26,12 +33,10 @@ void modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
         force_sleep = false;
     }
     Subprocess s(lemon_cmd);
-
+    std::thread output_handler(lemonbar_output_handler, std::ref(s.stdout));
     INFO("[lemonbar] Started");
 
-    // std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    INFO("[lemonbar] Running");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     while (modules::is_ok) {
         wake_mutex.lock(); // This mutex should be unlocked by other threads when new output is availible.
@@ -39,20 +44,16 @@ void modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
             std::unique_lock<std::shared_mutex> lock(data_mutex);
             for (auto &output : outputs)
                 s.stdin << *output;
+            s.stdin << std::endl;
         }
-        s.stdin << std::endl;
 
         DEB("tick");
-
-        // TODO: handle
-        char buffer[20] = "";
-        s.stdout.readsome(buffer, 20); // TODO: understand stdio buffers.
-        if (buffer[0] != '\0')
-            DEB("Lemonbar gave: " << buffer);
 
         if (force_sleep)
             std::this_thread::sleep_for(force_sleep_interval);
     }
     s.send_eof();
+    output_handler.join();
     s.wait();
 }
+
