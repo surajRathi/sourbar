@@ -50,9 +50,12 @@ bool load_config(const char *filename,
             if (!section.empty()) {
                 if (module_func != nullptr) {
                     outputs.push_back(std::make_unique<std::string>());
-                    threads.emplace_back(module_func, std::ref(wake_mutex), std::ref(data_mutex),
-                                         std::ref(*outputs.back()),
-                                         std::ref(*options.back()));
+                    threads.emplace_back(
+                            module_func,
+                            std::move(std::bind(modules::update_function,
+                                                std::ref(wake_mutex), std::ref(data_mutex),
+                                                std::ref(*outputs.back()), std::placeholders::_1)),
+                            std::ref(*options.back()));
                 } else if (!bar) {
                     bar_iter = modules::bars.find(section);
                     if (bar_iter != modules::bars.end()) {
@@ -107,9 +110,13 @@ bool load_config(const char *filename,
     }
     if (!section.empty()) { // TODO: move to function repeated from loop.
         if (module_func != nullptr) {
-            outputs.emplace_back();
-            threads.emplace_back(module_func, std::ref(wake_mutex), std::ref(data_mutex), std::ref(*outputs.back()),
-                                 std::ref(*options.back()));
+            outputs.push_back(std::make_unique<std::string>());
+            threads.emplace_back(
+                    module_func,
+                    std::move(std::bind(modules::update_function,
+                                        std::ref(wake_mutex), std::ref(data_mutex),
+                                        std::ref(*outputs.back()), std::placeholders::_1)),
+                    std::ref(*options.back()));
         } else if (!bar) {
             bar_iter = modules::bars.find(section);
             if (bar_iter != modules::bars.end()) {
