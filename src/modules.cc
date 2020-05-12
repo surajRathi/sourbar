@@ -58,17 +58,13 @@ void modules::clock(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
         time = std::time(nullptr);
         if (!std::strftime(buffer, CLOCK_BUFFER_SIZE - 1, format, std::localtime(&time))) {
             ERR("[clock@" << (size_t) &options % 1000 << "] " << "Cant format time.");
-            std::shared_lock<std::shared_mutex> lock(data_mutex);
-            output = "";
+            modules::update_function(wake_mutex, data_mutex, output); // ,"");
             return;
         }
 
-        {
-            std::shared_lock<std::shared_mutex> lock(data_mutex);
-            output = prefix + buffer + suffix;
-        }
+        modules::update_function(wake_mutex, data_mutex, output,
+                                 prefix + buffer + suffix);
 
-        wake_mutex.unlock();
         std::this_thread::sleep_for(interval);
     }
     INFO("[clock@" << (size_t) &options % 1000 << "] " << "Done");
@@ -79,11 +75,17 @@ void modules::text(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
     const auto&[prefix, suffix] = colorwrap(options);
 
     INFO("[text@" << (size_t) &options % 1000 << "] " << "Started");
-    {
-        std::shared_lock<std::shared_mutex> lock(data_mutex);
-        output = prefix + options.at("text") + suffix;
-    }
 
-    wake_mutex.unlock();
+    modules::update_function(wake_mutex, data_mutex, output,
+                             prefix + options.at("text") + suffix);
+
     INFO("[text@" << (size_t) &options % 1000 << "] " << "Done");
+}
+
+// TODO: Doesnt allow += or append..
+void modules::update_function(std::mutex &wake_mutex, std::shared_mutex &data_mutex, std::string &output,
+                              const std::string value) {
+    std::shared_lock<std::shared_mutex> lock(data_mutex);
+    output = value;
+    wake_mutex.unlock();
 }

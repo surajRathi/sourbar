@@ -70,6 +70,9 @@ namespace modules {
     BarMap bars = {
             {"lemonbar", &lemonbar}
     };
+
+    void update_function(std::mutex &wake_mutex, std::shared_mutex &data_mutex, std::string &output,
+                         const std::string value = "");
 }
 
 #endif //BAR_MODULES_H
