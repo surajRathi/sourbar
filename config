@@ -1,20 +1,14 @@
-# A config file for testin
+# A config file for testing
 
 # all rights not reserved lol
-
-[text]
-text="%{c}"
+[center]
 
 [clock]
 interval=1
 
-[text]
-text = "%{r}"
+[right]
 
-[text]
-text="%{A:power:}Power%{A}"
-
-[clock]
+[network]
 interval=1
 
 [lemonbar]

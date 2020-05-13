@@ -29,7 +29,7 @@ void modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
         force_sleep_interval = std::chrono::milliseconds(
                 (int) (std::stof(iter->second) / 1000));
         force_sleep = true;
-    } catch (const std::exception &e) { // from stof
+    } catch (const std::exception &e) { // from std::stof
         force_sleep = false;
     }
     Subprocess s(lemon_cmd);
@@ -47,7 +47,7 @@ void modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
             s.stdin << std::endl;
         }
 
-        DEB("tick");
+        //DEB("tick");
 
         if (force_sleep)
             std::this_thread::sleep_for(force_sleep_interval);

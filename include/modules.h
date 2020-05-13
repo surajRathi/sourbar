@@ -28,7 +28,7 @@ namespace modules {
             std::reference_wrapper<std::string>, const std::_Placeholder<1> &>::type
             Updater;
 
-    //typedef void (*Module)(std::mutex &, std::shared_mutex &, std::string &, const Options &);
+
     typedef void (*Module)(Updater u, const Options &);
 
     typedef void (*Bar)(std::mutex &, std::shared_mutex &, std::vector<std::unique_ptr<std::string>> &,
@@ -37,6 +37,7 @@ namespace modules {
     typedef const std::map<std::string, std::pair<Module, Options>> ModuleMap;
     typedef const std::map<std::string, Bar> BarMap;
 
+    const Options empty_options = {};
 
     const Options lemonbar_options = {
             {"name",                 "lemonbar"},
@@ -49,16 +50,17 @@ namespace modules {
 
     void lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
                   std::vector<std::unique_ptr<std::string>> &outputs,
-                  const Options &options = lemonbar_options); // In modules_lemonbar.cc
+                  const Options &options); // In modules_lemonbar.cc
 
 
     const Options text_options = {
             {"color",      ""},
             {"background", ""},
-            {"text",       ""}
+            {"text",       ""},
+            {"action",     ""}
     };
 
-    void text(const Updater update, const Options &options = text_options);
+    void text(const Updater update, const Options &options);
 
     const Options clock_options = {
             {"color",      ""},
@@ -68,12 +70,37 @@ namespace modules {
     };
 
     //void clock(std::mutex &mutex, std::shared_mutex &, std::string &output, const Options &options = clock_options);
-    void clock(const Updater update, const Options &options = clock_options);
+    void clock(const Updater update, const Options &options);
+
+    void left(const Updater update, const Options &options);
+
+    void center(const Updater update, const Options &options);
+
+    void right(const Updater update, const Options &options);
+
+    const Options network_options = {
+            {"background",    ""},
+            {"color_up",      ""},
+            {"color_down",    ""},
+            {"color_disable", ""},
+            {"iface_wlan",    ""},
+            {"syms_wlan",     ""}, // 3 Quoted strings seperated by a space.
+            {"syms_ether",    ""},
+    };
+
+    void network(const Updater update, const Options &options);
 
 
     ModuleMap module_map = {
             {"clock",    std::make_pair(&clock, clock_options)},
+
             {"text",     std::make_pair(&text, text_options)},
+            {"left",     std::make_pair(&left, empty_options)},
+            {"center",   std::make_pair(&center, empty_options)},
+            {"right",    std::make_pair(&right, empty_options)},
+
+            {"network",  std::make_pair(&network, network_options)},
+
             {"lemonbar", std::make_pair(nullptr, lemonbar_options)}
     };
 
