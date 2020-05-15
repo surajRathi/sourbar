@@ -83,7 +83,7 @@ bool load_config(const char *filename,
             module_func = _x.first;
             options.push_back(std::make_unique<modules::Options>(_x.second));
 
-            INFO("Found module: " << section);
+            // INFO("Found module: " << section);
             continue;
         }
 

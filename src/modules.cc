@@ -13,7 +13,6 @@ void modules::update_function(std::mutex &wake_mutex, std::shared_mutex &data_mu
     wake_mutex.unlock();
 }
 
-
 // TODO: More helper functions like get_duration, get_color, etc.
 // TODO: standardized log messages with entire message as one string ( no interleaving)
 
@@ -53,6 +52,7 @@ std::string colorreturn(std::string &str, const std::string &color = "", const s
     colorwrap(str, color, background);
     return str;
 }
+
 
 void actionwrap(std::string &prefix, std::string &suffix,
                 const std::string &action, const std::string &buttons = "") {
@@ -126,23 +126,39 @@ void modules::right(const modules::Updater update, const modules::Options &optio
     update("%{r}");
 }
 
+void modules::spacer(const modules::Updater update, const modules::Options &options) {
+    update(options.at("spacer"));
+}
+
+// Uses systemd-networkd.service to find the status of the a wlan* and an enp* network.
+// My laptop doesnt have ethernet
 const char *const NETWORK_COMMAND[] = {"journalctl", "-fu", "systemd-networkd.service", "--no-pager", "-o", "cat"};
+
 // Maybe use --no-tail?
-
+// TODO: use power indicater
 void modules::network(const modules::Updater update, const modules::Options &options) {
-    Subprocess journal(NETWORK_COMMAND); // TODO: Use popopen
-    journal.send_eof();
+    Subprocess journal(NETWORK_COMMAND); // Use popopen?
+    journal.send_eof(); // Close STDIN
+    std::string line;
 
-    std::string line, wlan, enp;
+    std::string prefix, suffix;
+    colorwrap(prefix, suffix, options);
 
-    bool wlan_conn = false, wlan_up = false;
-    const std::string wlan_conn_color, wlan_up_color, wlan_down_color;
-    const std::string wlan_up_sym = "?", sep_sym = " | ", wlan_conn_sym = "d";
+    bool enp_conn = false, wlan_conn = false, wlan_up = false;
+
+    const bool show_ssid = options.at("show_ssid") == "true" || options.at("show_ssid") == "1";
+    DEB(show_ssid);
+
+    const std::string &wlan_conn_color = options.at("wlan_conn_color"),
+            &wlan_up_color = options.at("wlan_up_color"), &wlan_down_color = options.at("wlan_down_color"),
+            &enp_color = options.at("enp_color");
+
+    const std::string &wlan_conn_sym = options.at("wlan_conn_sym"), &wlan_up_sym = options.at("wlan_up_sym"),
+            &wlan_down_sym = options.at("wlan_down_sym"), &sep_sym = options.at("sep_sym"),
+            &enp_sym = options.at("enp_sym");
+
     std::string wlan_ssid;
-    const std::string wlan_down_sym = "!";
-
-    bool enp_conn = false;
-    const std::string enp_color, enp_sym = ">";
+    const char *const wlan_iface = "wlan0";
 
     while (std::getline(journal.stdout, line)) {
         const size_t sep = line.find(':');
@@ -153,57 +169,108 @@ void modules::network(const modules::Updater update, const modules::Options &opt
         msg.remove_prefix(sep + 2);
 
         if (iface.rfind("wlan", 0) == 0) {
-            if (msg == "Gained carrier")
+            if (msg == "Gained carrier") {
                 wlan_conn = true;
-            else if (msg == "Lost carrier") {
+            } else if (msg == "Lost carrier") {
                 wlan_conn = false;
-                if (!wlan_ssid.empty())
-                    INFO("Disconnected from " << wlan_ssid);
-                wlan_ssid = "";
             } else if (msg == "Link UP") {
                 wlan_up = true;
-                INFO("Wifi Up.");
             } else if (msg == "Link DOWN") {
                 wlan_up = false;
-                INFO("Wifi Down.");
             } else if (msg.rfind("Connected WiFi access point: ", 0) == 0) {
                 std::string_view sv(msg);
                 sv.remove_prefix(29);
                 sv.remove_suffix(sv.length() - sv.rfind('(') + 1);
                 wlan_ssid = sv;
-                INFO("Connected to " << sv << ".");
             }
 
         } else if (iface.rfind("enp", 0) == 0) {
             if (msg == "Gained carrier") {
                 enp_conn = true;
-                INFO("USB tether connected");
             } else if (msg == "Lost carrier") {
                 enp_conn = false;
-                INFO("USB tether disconnected.");
             }
         } else {
             DEB("Unknown interface: " << iface);
         }
 
+
         if (!journal.stdout_buffer->in_avail()) { // Only updates before blocking io.
-            std::string output;
+            std::string output = prefix;
             if (enp_conn) {
                 output += colorreturn(enp_sym, enp_color);
                 output += sep_sym;
             }
 
             if (wlan_conn) {
-                output += wlan_conn_sym;
-                output += " ";
-                output += colorreturn(wlan_ssid, wlan_conn_color);
-            } else if (wlan_up) {
-                output += colorreturn(wlan_up_sym, wlan_up_color);
+                if (wlan_ssid.empty()) {
+                    wlan_ssid = "unknown";
+                    const char *const NETWORK_WPA_CLI_STATUS[] = {"wpa_cli", "-i", wlan_iface, "status"};
+                    Subprocess wpa_cli(NETWORK_WPA_CLI_STATUS);
+                    wpa_cli.send_eof();
+                    std::string wpa_line;
+                    while (std::getline(wpa_cli.stdout, wpa_line)) {
+                        if (wpa_line.rfind("ssid=", 0) == 0)
+                            wlan_ssid = wpa_line.substr(5);//, wpa_line.length() - 5 + 1);
+                    }
+                    wpa_cli.wait();
+                }
+
+                output += colorreturn((wlan_conn_sym.empty() ? "" : wlan_conn_sym) +
+                                      (wlan_conn_sym.empty() && !show_ssid ? "" : " ") + (show_ssid ? wlan_ssid : ""),
+                                      wlan_conn_color);
             } else {
-                output += colorreturn(wlan_down_sym, wlan_down_color);
+                output += colorreturn(wlan_up ? wlan_up_sym : wlan_down_sym, wlan_down_color);
             }
+            output += suffix;
             update(output);
         }
     }
-
 }
+
+const char *const BATTERY_COMMAND[] = {"udevadm", "monitor", " --subsystem-match=\"power_supply\"", "--udev"};
+// TODO: Check software
+//const char *BATTERY_PATH = "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0";
+//const char *const BATTERY_INFO[] = {"udevadm", "info", "-p", BATTERY_PATH};
+const char *const BATTERY_INFO[] = {"udevadm", "info", "-p",
+                                    "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
+
+void modules::battery(const modules::Updater update, const modules::Options &options) {
+    INFO("[battery@]");
+    std::string prefix, suffix;
+    colorwrap(prefix, suffix, options);
+
+    const std::string &charge_sym = options.at("charge_sym");
+    const std::string charge_spacer(charge_sym.length(), ' ');
+
+    Subprocess udev_monitor(BATTERY_COMMAND);
+    udev_monitor.send_eof();
+
+    std::string line;
+    std::getline(udev_monitor.stdout, line); // monitor will print the received events for:
+    std::getline(udev_monitor.stdout, line); // UDEV - the event which udev sends out after rule processing
+    std::getline(udev_monitor.stdout, line); // "\n"
+
+    // udevadm monitor sends three events for charging / discharging. TODO: One update
+    do {
+        if (!udev_monitor.stdout_buffer->in_avail()) { // Three updates have too big a gap.
+            // const std::string BATTERY_PATH = line.substr(line.find('/'), line.rfind(" (power_supply)") - line.find('/')+ 1);
+            // const char *const BATTERY_INFO[] = {"udevadm", "info", "-p", BATTERY_PATH};
+            Subprocess battery_info(BATTERY_INFO);
+            battery_info.send_eof();
+
+            std::string battery_line, status, capacity;
+            while (std::getline(battery_info.stdout, battery_line)) {
+                if (battery_line.rfind("E: POWER_SUPPLY_STATUS=", 0) == 0)
+                    status = battery_line.substr(23);
+                else if (battery_line.rfind("E: POWER_SUPPLY_CAPACITY=", 0) == 0)
+                    capacity = battery_line.substr(25);
+            }
+            update(prefix + (status == "Charging" ? charge_sym : charge_spacer) +
+                   (capacity.length() == 1 ? " " : "") + capacity +
+                   "%" + suffix);
+        }
+    } while (std::getline(udev_monitor.stdout, line));
+}
+
+

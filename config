@@ -4,12 +4,17 @@
 [center]
 
 [clock]
-interval=1
+interval=5
 
 [right]
 
 [network]
 interval=1
+
+[spacer]
+spacer="   "
+
+[battery]
 
 [lemonbar]
 color= "#F5F6F7"

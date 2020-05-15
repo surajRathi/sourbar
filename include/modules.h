@@ -37,9 +37,9 @@ namespace modules {
     typedef const std::map<std::string, std::pair<Module, Options>> ModuleMap;
     typedef const std::map<std::string, Bar> BarMap;
 
-    const Options empty_options = {};
+    const Options empty_options{};
 
-    const Options lemonbar_options = {
+    const Options lemonbar_options{
             {"name",                 "lemonbar"},
             {"color",                "#FFFFFF"},
             {"background",           "#000000"},
@@ -53,7 +53,7 @@ namespace modules {
                   const Options &options); // In modules_lemonbar.cc
 
 
-    const Options text_options = {
+    const Options text_options{
             {"color",      ""},
             {"background", ""},
             {"text",       ""},
@@ -62,14 +62,14 @@ namespace modules {
 
     void text(const Updater update, const Options &options);
 
-    const Options clock_options = {
+    const Options clock_options{
             {"color",      ""},
             {"background", ""},
             {"interval",   "10"},
             {"format",     "%l:%M.%S %p"}
     };
 
-    //void clock(std::mutex &mutex, std::shared_mutex &, std::string &output, const Options &options = clock_options);
+    //void clock(std::mutex &mutex, std::shared_mutex &, std::string &output, const Options &optionsclock_options);
     void clock(const Updater update, const Options &options);
 
     void left(const Updater update, const Options &options);
@@ -78,33 +78,53 @@ namespace modules {
 
     void right(const Updater update, const Options &options);
 
-    const Options network_options = {
-            {"background",    ""},
-            {"color_up",      ""},
-            {"color_down",    ""},
-            {"color_disable", ""},
-            {"iface_wlan",    ""},
-            {"syms_wlan",     ""}, // 3 Quoted strings seperated by a space.
-            {"syms_ether",    ""},
+    const Options spacer_options{
+            {"spacer", " "}
+    };
+
+    void spacer(const Updater update, const Options &options);
+
+    const Options network_options{
+            {"color",           ""},
+            {"background",      ""},
+            {"show_ssid",       "true"}, // or "1"
+            {"wlan_conn_sym",   ""},
+            {"wlan_up_sym",     "<"},
+            {"wlan_down_sym",   "x"},
+            {"sep_sym",         " | "},
+            {"enp_sym",         ">"},
+            {"wlan_conn_color", ""},
+            {"wlan_up_color",   ""},
+            {"wlan_down_color", ""},
+            {"enp_color",       ""}
     };
 
     void network(const Updater update, const Options &options);
 
+    const Options battery_options{
+            {"color",      ""},
+            {"background", ""},
+            {"charge_sym", "~"}
+    };
 
-    ModuleMap module_map = {
+    void battery(const Updater update, const Options &options);
+
+    ModuleMap module_map{
             {"clock",    std::make_pair(&clock, clock_options)},
 
             {"text",     std::make_pair(&text, text_options)},
             {"left",     std::make_pair(&left, empty_options)},
             {"center",   std::make_pair(&center, empty_options)},
             {"right",    std::make_pair(&right, empty_options)},
+            {"spacer",   std::make_pair(&spacer, spacer_options)},
 
             {"network",  std::make_pair(&network, network_options)},
+            {"battery",  std::make_pair(&battery, battery_options)},
 
             {"lemonbar", std::make_pair(nullptr, lemonbar_options)}
     };
 
-    BarMap bars = {
+    BarMap bars{
             {"lemonbar", &lemonbar}
     };
 
