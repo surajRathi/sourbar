@@ -1,6 +1,11 @@
 # A config file for testing
 
 # all rights not reserved lol
+
+[left]
+
+[i3]
+
 [center]
 
 [clock]

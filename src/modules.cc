@@ -115,7 +115,7 @@ void modules::text(const Updater update, const modules::Options &options) {
 }
 
 void modules::left(const modules::Updater update, const modules::Options &options) {
-    update("%l}");
+    update("%{l}");
 }
 
 void modules::center(const modules::Updater update, const modules::Options &options) {
@@ -273,4 +273,70 @@ void modules::battery(const modules::Updater update, const modules::Options &opt
     } while (std::getline(udev_monitor.stdout, line));
 }
 
+#include <i3ipc++/ipc.hpp>
+#include <sstream>
+
+const std::string I3_mode_default = "default";
+
+void modules::i3(const modules::Updater update, const modules::Options &options) {
+    INFO("[i3] started");
+
+    size_t max_len;
+    try {
+        max_len = std::stoi(options.at("title_max_len"));
+    } catch (const std::exception &e) {
+        max_len = 10;
+    }
+
+
+    i3ipc::connection conn;
+
+    std::vector<std::string> workspaces;
+
+    {
+        std::vector<std::shared_ptr<i3ipc::workspace_t>> workspace_objs = conn.get_workspaces();
+        std::transform(workspace_objs.cbegin(), workspace_objs.cend(), std::back_inserter(workspaces),
+                       [](const std::shared_ptr<i3ipc::workspace_t> &obj) {
+                           return obj->name;
+                       });
+    }
+
+    const std::vector<std::string>::const_iterator insertion;
+    std::string title, mode;
+
+    auto print = [&]() {
+        std::stringstream ss;
+
+        for (auto iter = workspaces.begin(); iter != workspaces.end(); ++iter) {
+            ss << *iter;
+            if (iter == insertion)
+                ss << " " << title.substr(0, max_len);
+            ss << " ";
+        }
+
+        if (mode != I3_mode_default)
+            ss << " " << mode;
+
+        update(ss.str());
+    };
+
+    print();
+
+    conn.subscribe(i3ipc::EventType::ET_WORKSPACE | i3ipc::EventType::ET_WINDOW | i3ipc::EventType::ET_MODE);
+
+
+    conn.signal_workspace_event.connect([](const i3ipc::workspace_event_t &ev) {
+    });
+
+    conn.signal_mode_event.connect([&mode, &print](const i3ipc::mode_t &mode_change) {
+        mode = mode_change.change;
+        print();
+    });
+
+    conn.signal_window_event.connect([](const i3ipc::window_event_t &ev) {
+        INFO("aa " << ev.container->name << "___" << ev.container->window_properties.instance << "___"
+                   << ev.container->window_properties.xclass);
+    });
+    while (modules::is_ok) conn.handle_event();
+}
 

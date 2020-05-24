@@ -45,6 +45,7 @@ bool load_config(const char *filename,
         start_index = 0;
         end_index = line.length();
 
+
         if (!clean(line, start_index, end_index, 3)) continue;
         if ((line[start_index] == '[') && (line[end_index] == ']')) {
             if (!section.empty()) {
@@ -52,6 +53,7 @@ bool load_config(const char *filename,
                     outputs.push_back(std::make_unique<std::string>());
                     threads.emplace_back(
                             module_func,
+                            // TODO : Move to lambda.
                             std::move(std::bind(modules::update_function,
                                                 std::ref(wake_mutex), std::ref(data_mutex),
                                                 std::ref(*outputs.back()), std::placeholders::_1)),

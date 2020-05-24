@@ -109,6 +109,15 @@ namespace modules {
 
     void battery(const Updater update, const Options &options);
 
+    const Options i3_options{
+            {"color",      ""},
+            {"background", ""},
+            {"title_max_len",    ""}
+    };
+
+    void i3(const Updater update, const Options &options);
+
+
     ModuleMap module_map{
             {"clock",    std::make_pair(&clock, clock_options)},
 
@@ -120,6 +129,7 @@ namespace modules {
 
             {"network",  std::make_pair(&network, network_options)},
             {"battery",  std::make_pair(&battery, battery_options)},
+            {"i3",    std::make_pair(&i3, i3_options)},
 
             {"lemonbar", std::make_pair(nullptr, lemonbar_options)}
     };
