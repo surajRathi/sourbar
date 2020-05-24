@@ -2,6 +2,7 @@
 #include "../include/subprocess.h"
 
 #include <thread>
+#include<set>
 
 bool modules::is_ok = true;
 
@@ -276,8 +277,6 @@ void modules::battery(const modules::Updater update, const modules::Options &opt
 #include <i3ipc++/ipc.hpp>
 #include <sstream>
 
-const std::string I3_mode_default = "default";
-
 void modules::i3(const modules::Updater update, const modules::Options &options) {
     INFO("[i3] started");
 
@@ -291,26 +290,27 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
 
     i3ipc::connection conn;
 
-    std::vector<std::string> workspaces;
-
+    std::set<std::pair<int, std::string>> workspaces; // TODO: Change to only sort on first element.
     {
         std::vector<std::shared_ptr<i3ipc::workspace_t>> workspace_objs = conn.get_workspaces();
-        std::transform(workspace_objs.cbegin(), workspace_objs.cend(), std::back_inserter(workspaces),
+        std::transform(workspace_objs.cbegin(), workspace_objs.cend(), std::inserter(workspaces, workspaces.begin()),
                        [](const std::shared_ptr<i3ipc::workspace_t> &obj) {
-                           return obj->name;
+                           return std::make_pair(obj->num, obj->name);
                        });
     }
 
-    const std::vector<std::string>::const_iterator insertion;
+    //const std::vector<std::string>::const_iterator insertion;
+    int insertion_num;
     std::string title, mode;
+    const std::string I3_mode_default = "default";
 
     auto print = [&]() {
         std::stringstream ss;
 
-        for (auto iter = workspaces.begin(); iter != workspaces.end(); ++iter) {
-            ss << *iter;
-            if (iter == insertion)
-                ss << " " << title.substr(0, max_len);
+        for (auto &ws : workspaces) {
+            ss << ws.second;
+            if (ws.first == insertion_num)
+                ss << " " << title.substr(0, max_len) << " ";
             ss << " ";
         }
 
@@ -324,19 +324,54 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
 
     conn.subscribe(i3ipc::EventType::ET_WORKSPACE | i3ipc::EventType::ET_WINDOW | i3ipc::EventType::ET_MODE);
 
+    /*const std::map<i3ipc::WorkspaceEventType, std::string> ws_event_to_str{
+            {i3ipc::WorkspaceEventType::FOCUS,    "FOCUS"},
+            {i3ipc::WorkspaceEventType::EMPTY,    "EMPTY"},
+            {i3ipc::WorkspaceEventType::INIT,     "INIT"},
+            {i3ipc::WorkspaceEventType::URGENT,   "URGENT"},
+            {i3ipc::WorkspaceEventType::RENAME,   "RENAME"},
+            {i3ipc::WorkspaceEventType::RELOAD,   "RELOAD"},
+            {i3ipc::WorkspaceEventType::RESTORED, "RESTORED"}
+    };*/
 
-    conn.signal_workspace_event.connect([](const i3ipc::workspace_event_t &ev) {
-    });
+    conn.signal_workspace_event.connect(
+            [/*&ws_event_to_str,*/ &workspaces, &insertion_num, &print](const i3ipc::workspace_event_t &ev) {
+                // INFO(ws_event_to_str.at(ev.type) << " " << ev.current->num);
+
+                if (ev.type == i3ipc::WorkspaceEventType::FOCUS || ev.type == i3ipc::WorkspaceEventType::INIT)
+                    insertion_num = ev.current->num;
+
+                if (ev.type == i3ipc::WorkspaceEventType::INIT)
+                    workspaces.insert({ev.current->num, ev.current->name});
+
+                if (ev.type == i3ipc::WorkspaceEventType::EMPTY)
+                    workspaces.erase(workspaces.find({ev.current->num, ev.current->name}));
+
+                // TODO
+                // if (ev.type == i3ipc::WorkspaceEventType::{RELOAD, RENAMED, RESTORED})
+
+                /* Probably useful later
+                 * auto it = std::find_if(st.begin(), st.end(), [](const pair<int,int>& p ){ return p.first == 1; });
+                 * if (it != st.end())
+                 * st.erase(it);
+                 */
+                print();
+            });
 
     conn.signal_mode_event.connect([&mode, &print](const i3ipc::mode_t &mode_change) {
         mode = mode_change.change;
         print();
     });
 
-    conn.signal_window_event.connect([](const i3ipc::window_event_t &ev) {
-        INFO("aa " << ev.container->name << "___" << ev.container->window_properties.instance << "___"
-                   << ev.container->window_properties.xclass);
+    conn.signal_window_event.connect([&print, &title](const i3ipc::window_event_t &ev) {
+        // INFO("[i3] " << ev.container->name << "___" << ev.container->window_properties.instance << "___" <<
+        // INFO("[i3] " << ev.container->name << "___" << ev.container->window_properties.instance << "___" <<
+        // ev.container->window_properties.xclass);
+
+        title = ev.container->window_properties.xclass;
+        print();
     });
+
     while (modules::is_ok) conn.handle_event();
 }
 
