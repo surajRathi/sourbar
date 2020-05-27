@@ -35,9 +35,13 @@ Subprocess::Subprocess(const char *const *argv /*= nullptr*/, const char *const 
         dup2(read_pipe.read_fd(), STDIN_FILENO);
         dup2(write_pipe.write_fd(), STDOUT_FILENO);
 
-        if (envp != nullptr)
+        if (envp != nullptr) {
             execve(argv[0], const_cast<char *const *>(argv), const_cast<char *const *>(envp));
-        else execvp(argv[0], const_cast<char *const *>(argv));
+        } else {
+            execvp(argv[0], const_cast<char *const *>(argv));
+        }
+
+        ERR("Could not launch process");
         exit(1);
     } else {
         close(write_pipe.write_fd());
