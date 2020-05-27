@@ -117,7 +117,7 @@ namespace modules {
             {"ws_inactive",    ""},
             {"ws_inactive_bg", ""},
             {"ws_active",      ""},
-            {"ws_inactive_bg", ""},
+            {"ws_active_bg",   ""},
 
             {"title",          ""},
             {"title_bg",       ""},
