@@ -17,66 +17,74 @@ void modules::update_function(std::mutex &wake_mutex, std::shared_mutex &data_mu
 
 struct Wrap {
     std::string prefix, suffix;
+
+    Wrap &operator+=(const Wrap &w) {
+        prefix.append(w.prefix);
+        suffix.insert(0, w.suffix);
+
+        return *this;
+    }
 };
+
+Wrap operator+(const Wrap &w1, const Wrap &w2) {
+    return {w1.prefix + w2.prefix, w2.suffix + w1.suffix};
+}
+
+std::string &operator+=(std::string &str, const Wrap &w) {
+    str.insert(0, w.prefix);
+    str.append(w.suffix);
+    return str;
+}
+
+std::string operator+(const std::string &str, const Wrap &w) {
+    return w.prefix + str + w.suffix;
+}
+
 
 // TODO: More helper functions like get_duration, get_color, etc.
 // TODO: standardized log messages with entire message as one string ( no interleaving)
 
 // Helpers:
-void colorwrap(std::string &prefix, std::string &suffix,
-               const modules::Options &options) {
-    try {  // try-catch not req.
-        const std::string &color = options.at("color");
-        const std::string &background = options.at("background");
-        // TODO: Sanitize and check color. no '%', '{', '}'.
 
-        if (!color.empty()) {
-            prefix += "%{F" + color + "}";
-            suffix = "%{F-}" + suffix;
-        }
-        if (!background.empty()) {
-            prefix += "%{B" + background + "}";
-            suffix = "%{B-}" + suffix;
-        }
-    } catch (const std::out_of_range &e) {
+// Set to prefix/suffix
+void colorwrap(std::string &prefix, std::string &suffix,
+               const std::string &color, const std::string &background = "") {
+    // TODO: Use wraps
+    if (!color.empty()) {
+        prefix.insert(0, "%{F" + color + "}");
+        suffix += "%{F-}" + suffix;
+    }
+    if (!background.empty()) {
+        prefix.insert(0, "%{B" + background + "}");
+        suffix += "%{B-}" + suffix;
     }
 }
 
-void colorwrap(std::string &str, const std::string &color = "", const std::string &background = "") {
-    str = (color.empty() ? "" : "%{F:" + color + "}") +
-          (background.empty() ? "" : "%{F:" + background + "}") + str + (background.empty() ? "" : "%{B-}") +
-          (color.empty() ? "" : "%{F-}");
-}
-
-std::string colorreturn(const std::string &str, const std::string &color = "", const std::string &background = "") {
-    std::string ret = str;
-    colorwrap(ret, color, background);
+// Get wrap
+Wrap colorreturn(const std::string &color, const std::string &background = "") {
+    Wrap ret;
+    colorwrap(ret.prefix, ret.suffix, color, background);
     return ret;
 }
 
-std::string colorreturn(std::string &str, const std::string &color = "", const std::string &background = "") {
-    colorwrap(str, color, background);
-    return str;
-}
-
-
 void actionwrap(std::string &prefix, std::string &suffix,
                 const std::string &action, const std::string &buttons = "") {
-    prefix += "%{A" + buttons + ":" + action + ":}";
+    prefix.insert(0, "%{A" + buttons + ":" + action + ":}");
     suffix += "%{A}";
 }
 
-void actionwrap(std::string &prefix, std::string &suffix, const modules::Options &options) {
-    auto iter = options.find("action");
-    if (iter != options.end() && !iter->second.empty())
-        actionwrap(prefix, suffix, iter->second);
+// Get wrap
+Wrap actionreturn(const std::string &action, const std::string &buttons = "") {
+    Wrap ret;
+    actionwrap(ret.prefix, ret.suffix, action, buttons);
+    return ret;
 }
 
 // Modules:
 void modules::clock(modules::Updater update, const Options &options) {
     const size_t CLOCK_BUFFER_SIZE = 30;
-    std::string prefix, suffix;
-    colorwrap(prefix, suffix, options);
+
+    Wrap wrap = colorreturn(options.at("color"), options.at("background"));
 
     const char *format = options.at("format").data();
     char buffer[CLOCK_BUFFER_SIZE];
@@ -100,7 +108,7 @@ void modules::clock(modules::Updater update, const Options &options) {
             return;
         }
 
-        update(prefix + buffer + suffix);
+        update(buffer + wrap);
 
         std::this_thread::sleep_for(interval);
     }
@@ -108,15 +116,12 @@ void modules::clock(modules::Updater update, const Options &options) {
 }
 
 void modules::text(const Updater update, const modules::Options &options) {
-    std::string prefix, suffix;
-    colorwrap(prefix, suffix, options);
-    actionwrap(prefix, suffix, options);
+    Wrap wrap = colorreturn(options.at("color"), options.at("background"))
+                + actionreturn(options.at("action"));
 
-    DEB("[text@" << (size_t) &options % 1000 << "] " << "Started");
+    DEB("[text@] " << "Started");
 
-    update(prefix + options.at("text") + suffix);
-
-    DEB("[text@" << (size_t) &options % 1000 << "] " << "Done");
+    update(options.at("text") + wrap);
 }
 
 void modules::left(const modules::Updater update, const modules::Options &options) {
@@ -146,8 +151,7 @@ void modules::network(const modules::Updater update, const modules::Options &opt
     journal.send_eof(); // Close STDIN
     std::string line;
 
-    std::string prefix, suffix;
-    colorwrap(prefix, suffix, options);
+    Wrap wrap = colorreturn(options.at("color"), options.at("background"));
 
     bool enp_conn = false, wlan_conn = false, wlan_up = false;
 
@@ -201,9 +205,9 @@ void modules::network(const modules::Updater update, const modules::Options &opt
 
 
         if (!journal.stdout_buffer->in_avail()) { // Only updates before blocking io.
-            std::string output = prefix;
+            std::string output = wrap.prefix;
             if (enp_conn) {
-                output += colorreturn(enp_sym, enp_color);
+                output += (enp_sym + colorreturn(enp_color));
                 output += sep_sym;
             }
 
@@ -221,13 +225,13 @@ void modules::network(const modules::Updater update, const modules::Options &opt
                     wpa_cli.wait();
                 }
 
-                output += colorreturn((wlan_conn_sym.empty() ? "" : wlan_conn_sym) +
-                                      (wlan_conn_sym.empty() && !show_ssid ? "" : " ") + (show_ssid ? wlan_ssid : ""),
-                                      wlan_conn_color);
+                output += ((wlan_conn_sym.empty() ? "" : wlan_conn_sym) +
+                           (wlan_conn_sym.empty() && !show_ssid ? "" : " ") + (show_ssid ? wlan_ssid : "") +
+                           colorreturn(wlan_conn_color));
             } else {
-                output += colorreturn(wlan_up ? wlan_up_sym : wlan_down_sym, wlan_down_color);
+                output += ((wlan_up ? wlan_up_sym : wlan_down_sym) + colorreturn(wlan_down_color));
             }
-            output += suffix;
+            output += wrap.suffix;
             update(output);
         }
     }
@@ -242,8 +246,8 @@ const char *const BATTERY_INFO[] = {"udevadm", "info", "-p",
 
 void modules::battery(const modules::Updater update, const modules::Options &options) {
     INFO("[battery@]");
-    std::string prefix, suffix;
-    colorwrap(prefix, suffix, options);
+    Wrap wrap = colorreturn(options.at("color"), options.at("background"));
+
 
     const std::string &charge_sym = options.at("charge_sym");
     const std::string charge_spacer(charge_sym.length(), ' ');
@@ -271,9 +275,9 @@ void modules::battery(const modules::Updater update, const modules::Options &opt
                 else if (battery_line.rfind("E: POWER_SUPPLY_CAPACITY=", 0) == 0)
                     capacity = battery_line.substr(25);
             }
-            update(prefix + (status == "Charging" ? charge_sym : charge_spacer) +
-                   (capacity.length() == 1 ? " " : "") + capacity +
-                   "%" + suffix);
+            update((status == "Charging" ? charge_sym : charge_spacer) +
+                   (capacity.length() == 1 ? " " : "") + capacity + "%" +
+                   wrap);
         }
     } while (std::getline(udev_monitor.stdout, line));
 }
@@ -297,7 +301,10 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
     }
 
     I3_wraps wraps{
-
+            colorreturn(options.at("ws_inactive"), options.at("ws_inactive_bg")),
+            colorreturn(options.at("ws_active"), options.at("ws_active_bg")),
+            colorreturn(options.at("title"), options.at("title_bg")),
+            colorreturn(options.at("mode"), options.at("mode_bg")),
     };
 
     const std::string mode_default = "default";
@@ -308,20 +315,24 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
     int insertion_num;
     std::string title, mode;
 
-    auto print = [&update, &workspaces, &insertion_num, &title, &mode, &max_len, &mode_default]() {
+    auto print = [&update, &workspaces, &insertion_num, &title, &mode, &max_len, &mode_default, &wraps]() {
         std::stringstream ss;
 
+        ss << wraps.ws_inactive.prefix;
         for (auto &ws : workspaces) {
-            ss << ws.second;
-            if (ws.first == insertion_num && !title.empty()) {
-                ss << " " << title.substr(0, max_len) << " ";
-            }
-
+            if (ws.first == insertion_num) {
+                ss << wraps.ws_inactive.suffix << ws.second + wraps.ws_active;
+                if (!title.empty())
+                    ss << " " << title.substr(0, max_len) + wraps.title << " ";
+                ss << wraps.ws_inactive.prefix;
+            } else
+                ss << ws.second;
             ss << " ";
         }
+        ss << wraps.ws_inactive.suffix;
 
         if (mode != mode_default)
-            ss << "  " << mode;
+            ss << "  " << mode + wraps.mode;
 
         update(ss.str());
     };
@@ -384,7 +395,7 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
             title = "";
             insertion_num = -1;
 
-            { // Init workspaces
+            /* Init workspaces */ {
                 workspaces.clear();
                 std::vector<std::shared_ptr<i3ipc::workspace_t>> workspace_objs = conn.get_workspaces();
                 std::transform(workspace_objs.cbegin(), workspace_objs.cend(),
