@@ -110,9 +110,20 @@ namespace modules {
     void battery(const Updater update, const Options &options);
 
     const Options i3_options{
-            {"color",      ""},
-            {"background", ""},
-            {"title_max_len",    ""}
+            {"color",          ""},
+            {"background",     ""},
+            {"title_max_len",  ""},
+
+            {"ws_inactive",    ""},
+            {"ws_inactive_bg", ""},
+            {"ws_active",      ""},
+            {"ws_inactive_bg", ""},
+
+            {"title",          ""},
+            {"title_bg",       ""},
+
+            {"mode",           ""},
+            {"mode_bg",        ""}
     };
 
     void i3(const Updater update, const Options &options);
@@ -129,7 +140,7 @@ namespace modules {
 
             {"network",  std::make_pair(&network, network_options)},
             {"battery",  std::make_pair(&battery, battery_options)},
-            {"i3",    std::make_pair(&i3, i3_options)},
+            {"i3",       std::make_pair(&i3, i3_options)},
 
             {"lemonbar", std::make_pair(nullptr, lemonbar_options)}
     };

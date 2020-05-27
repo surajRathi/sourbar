@@ -9,17 +9,19 @@
 [center]
 
 [clock]
-interval=5
+interval=30
+format="%l:%M %p"
+
 
 [right]
 
 [network]
-interval=1
 
 [spacer]
 spacer="   "
 
 [battery]
+
 
 [lemonbar]
 color= "#F5F6F7"
