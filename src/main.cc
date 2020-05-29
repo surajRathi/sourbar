@@ -27,7 +27,6 @@ int main() {
     const char *const config_files[] = {"config"};
 #else
     std::vector<std::string> config_files{"sourbarrc"};
-    //config_files.emplace_back("config");
 
     char *config_home;
     if ((config_home = std::getenv("XDG_CONFIG_HOME")) != nullptr) {

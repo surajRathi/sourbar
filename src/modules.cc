@@ -3,6 +3,7 @@
 
 #include <thread>
 #include<set>
+#include <sstream>
 
 bool modules::is_ok = true;
 
@@ -167,7 +168,7 @@ void modules::network(const modules::Updater update, const modules::Options &opt
             &enp_sym = options.at("enp_sym");
 
     std::string wlan_ssid;
-    const char *const wlan_iface = "wlan0";
+    const std::string &wlan_iface = options.at("wlan_iface");
 
     while (std::getline(journal.stdout, line)) {
         const size_t sep = line.find(':');
@@ -177,7 +178,7 @@ void modules::network(const modules::Updater update, const modules::Options &opt
         iface.remove_suffix(line.length() - sep);
         msg.remove_prefix(sep + 2);
 
-        if (iface.rfind("wlan", 0) == 0) {
+        if (iface.rfind(wlan_iface, 0) == 0) {
             if (msg == "Gained carrier") {
                 wlan_conn = true;
             } else if (msg == "Lost carrier") {
@@ -214,7 +215,8 @@ void modules::network(const modules::Updater update, const modules::Options &opt
             if (wlan_conn) {
                 if (wlan_ssid.empty()) {
                     wlan_ssid = "unknown";
-                    const char *const NETWORK_WPA_CLI_STATUS[] = {"wpa_cli", "-i", wlan_iface, "status"};
+                    const char *const NETWORK_WPA_CLI_STATUS[] = {"wpa_cli", "-i",
+                                                                  (const char *const) wlan_iface.data(), "status"};
                     Subprocess wpa_cli(NETWORK_WPA_CLI_STATUS);
                     wpa_cli.send_eof();
                     std::string wpa_line;
@@ -237,22 +239,76 @@ void modules::network(const modules::Updater update, const modules::Options &opt
     }
 }
 
-const char *const BATTERY_COMMAND[] = {"udevadm", "monitor", " --subsystem-match=\"power_supply\"", "--udev"};
+
 // TODO: Check software
 //const char *BATTERY_PATH = "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0";
-//const char *const BATTERY_INFO[] = {"udevadm", "info", "-p", BATTERY_PATH};
-const char *const BATTERY_INFO[] = {"udevadm", "info", "-p",
-                                    "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
+//const char *const BATTERY_COMMAND[] = {"udevadm", "monitor", "--subsystem-match=\"power_supply\"", "--udev"};
+//const char *const BATTERY_INFO[] = {"udevadm", "info", "-p", "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
 
 void modules::battery(const modules::Updater update, const modules::Options &options) {
     INFO("[battery@]");
+    // TODO: Why doesnt normal statement work?
+    // Some stupid pointer problem.
+    std::vector<char const *> bat_cmd{"udevadm", "monitor", "--subsystem-match=\"power_supply\"", "--udev"};
+    std::vector<char const *> bat_info{"udevadm", "info", "-p",
+                                       "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
+
     Wrap wrap = colorreturn(options.at("color"), options.at("background"));
 
 
     const std::string &charge_sym = options.at("charge_sym");
     const std::string charge_spacer(charge_sym.length(), ' ');
 
-    Subprocess udev_monitor(BATTERY_COMMAND);
+    const std::string &chars = options.at("chars"), &chars_charging = options.at("chars_charging");
+
+    // CANNOT USE `char` with symbol font. Need `
+    std::vector<std::string> syms, syms_charging;
+    size_t adv_len = 0;
+    if (!chars.empty() && !chars_charging.empty()) {//&& (chars.size() == chars_charging.size())) {
+        /*std::basic_istringstream<wchar_t> s(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars)),
+                s_c(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars_charging));
+        wchar_t c, c_c;
+        while ((s >> c) && (s_c >> c_c)) {
+            syms.push_back(c);
+            syms_charging.push_back(c_c);
+        }
+        adv_len = syms.size();*/
+        const std::string delim = " ";
+        auto start = 0U;
+        auto end = chars.find(' ');
+        while (end != std::string::npos) {
+            syms.push_back(chars.substr(start, end - start));
+            start = end + delim.length();
+            end = chars.find(' ', start);
+        }
+
+        start = 0U;
+        end = chars_charging.find(' ');
+        while (end != std::string::npos) {
+            syms_charging.push_back(chars_charging.substr(start, end - start));
+            start = end + delim.length();
+            end = chars_charging.find(' ', start);
+        }
+
+        adv_len = syms.size() > syms_charging.size() ? syms_charging.size() : syms.size();
+    }
+    auto basic = [&charge_sym, &charge_spacer](std::string &capacity, const bool charging) {
+        return (charging ? charge_sym : charge_spacer) + (charge_sym.empty() ? "" : " ") + capacity + "%";
+    };
+
+    auto advanced = [&syms, &syms_charging, &adv_len](const std::string &capacity, const bool charging) {
+        std::vector<std::string> &char_set = (charging ? syms_charging : syms);
+        try {
+            int cap = std::stoi(capacity);
+            return char_set[(size_t) (adv_len * cap / 101)] + " " + capacity + "%";
+        } catch (const std::invalid_argument &e) {
+            return capacity + "%";
+
+        }
+    };
+
+    //Subprocess udev_monitor(BATTERY_COMMAND);
+    Subprocess udev_monitor(bat_cmd.data());
     udev_monitor.send_eof();
 
     std::string line;
@@ -265,19 +321,24 @@ void modules::battery(const modules::Updater update, const modules::Options &opt
         if (!udev_monitor.stdout_buffer->in_avail()) { // Three updates have too big a gap.
             // const std::string BATTERY_PATH = line.substr(line.find('/'), line.rfind(" (power_supply)") - line.find('/')+ 1);
             // const char *const BATTERY_INFO[] = {"udevadm", "info", "-p", BATTERY_PATH};
-            Subprocess battery_info(BATTERY_INFO);
+
+            //Subprocess battery_info(BATTERY_INFO);
+            Subprocess battery_info(bat_info.data());
             battery_info.send_eof();
 
-            std::string battery_line, status, capacity;
+            std::string battery_line, capacity;
+            bool charging = false;
             while (std::getline(battery_info.stdout, battery_line)) {
                 if (battery_line.rfind("E: POWER_SUPPLY_STATUS=", 0) == 0)
-                    status = battery_line.substr(23);
+                    charging = battery_line.substr(23) == "Charging";
                 else if (battery_line.rfind("E: POWER_SUPPLY_CAPACITY=", 0) == 0)
                     capacity = battery_line.substr(25);
             }
-            update((status == "Charging" ? charge_sym : charge_spacer) +
-                   (capacity.length() == 1 ? " " : "") + capacity + "%" +
-                   wrap);
+            if (adv_len) {
+                update(advanced(capacity, charging) + wrap);
+            } else {
+                update(basic(capacity, charging) + wrap);
+            }
         }
     } while (std::getline(udev_monitor.stdout, line));
 }

@@ -85,9 +85,10 @@ namespace modules {
     void spacer(const Updater update, const Options &options);
 
     const Options network_options{
+            {"wlan_iface",      "wlp1s0"},
             {"color",           ""},
             {"background",      ""},
-            {"show_ssid",       "true"}, // or "1"
+            {"show_ssid",       "true"},
             {"wlan_conn_sym",   ""},
             {"wlan_up_sym",     "<"},
             {"wlan_down_sym",   "x"},
@@ -102,9 +103,11 @@ namespace modules {
     void network(const Updater update, const Options &options);
 
     const Options battery_options{
-            {"color",      ""},
-            {"background", ""},
-            {"charge_sym", "~"}
+            {"color",          ""},
+            {"background",     ""},
+            {"charge_sym",     "~"},
+            {"chars",          ""},
+            {"chars_charging", ""}
     };
 
     void battery(const Updater update, const Options &options);
