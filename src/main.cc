@@ -12,8 +12,6 @@
 #include <filesystem>
 #include <fstream>
 
-// termite looks for the configuration file in the following order: "$XDG_CONFIG_HOME/termite/config", "~/.config/termite/config", "$XDG_CONFIG_DIRS/termite/config" and "/etc/xdg/termite/config"
-
 bool load_config(const std::string &filename,
                  std::vector<std::thread> &threads,
                  std::vector<std::unique_ptr<std::string>> &outputs,
@@ -24,7 +22,7 @@ int main() {
     INFO("Starting up.");
 
 #ifndef NDEBUG
-    const char *const config_files[] = {"config"};
+    const char *const config_files[] = {"config", "/home/suraj/.config/sourbarrc"};
 #else
     std::vector<std::string> config_files{"sourbarrc"};
 
@@ -66,6 +64,9 @@ int main() {
 
     // Handle signals.
 
+    threads.back().join();
+    ERR("Lemonbar joined!.");
+    return 0;
     for (auto &th : threads)
         th.join();
 
@@ -197,3 +198,5 @@ bool load_config(const std::string &filename,
 
     return bar;
 }
+
+#include <dlfcn.h>

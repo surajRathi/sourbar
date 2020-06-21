@@ -43,8 +43,15 @@ namespace modules {
             {"name",                 "lemonbar"},
             {"color",                "#FFFFFF"},
             {"background",           "#000000"},
-            {"font-1",               "-misc-dejavu sans-medium-r-normal--0-100-0-0-p-9-ascii-0"},
-            {"font-2",               "-wuncon-siji-medium-r-normal--0-0-75-75-c-0-iso10646-1"},
+            {"font-1",               "DejaVu"},
+            {"font-2",               ""},
+
+            // Convert to a single option following lemonbar spec?
+            {"width",                ""},
+            {"height",               "25"},
+            {"x",                    ""},
+            {"y",                    ""},
+
             {"force_sleep_interval", ""}
     };
 
@@ -111,6 +118,15 @@ namespace modules {
     };
 
     void battery(const Updater update, const Options &options);
+
+    const Options pulseaudio_options{
+            {"color",           ""},
+            {"background",      ""},
+            {"vol_syms",        "~"},
+            {"volume_mute_sym", ""}
+    };
+
+    void pulseaudio(const Updater update, const Options &options);
 
     const Options i3_options{
             {"color",          ""},

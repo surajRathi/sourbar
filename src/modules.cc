@@ -245,13 +245,14 @@ void modules::network(const modules::Updater update, const modules::Options &opt
 //const char *const BATTERY_COMMAND[] = {"udevadm", "monitor", "--subsystem-match=\"power_supply\"", "--udev"};
 //const char *const BATTERY_INFO[] = {"udevadm", "info", "-p", "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
 
+/*
 void modules::battery(const modules::Updater update, const modules::Options &options) {
     INFO("[battery@]");
     // TODO: Why doesnt normal statement work?
     // Some stupid pointer problem.
-    std::vector<char const *> bat_cmd{"udevadm", "monitor", "--subsystem-match=\"power_supply\"", "--udev"};
-    std::vector<char const *> bat_info{"udevadm", "info", "-p",
-                                       "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
+    const std::vector<char const *> bat_cmd{"udevadm", "monitor", "--subsystem-match=\"power_supply\"", "--udev"};
+    const std::vector<char const *> bat_info{"udevadm", "info", "-p", "/sys/class/power_supply/BAT0"};
+//                                             "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A08:00/PNP0C0A:03/power_supply/BAT0"};
 
     Wrap wrap = colorreturn(options.at("color"), options.at("background"));
 
@@ -265,14 +266,16 @@ void modules::battery(const modules::Updater update, const modules::Options &opt
     std::vector<std::string> syms, syms_charging;
     size_t adv_len = 0;
     if (!chars.empty() && !chars_charging.empty()) {//&& (chars.size() == chars_charging.size())) {
-        /*std::basic_istringstream<wchar_t> s(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars)),
+        */
+/*std::basic_istringstream<wchar_t> s(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars)),
                 s_c(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars_charging));
         wchar_t c, c_c;
         while ((s >> c) && (s_c >> c_c)) {
             syms.push_back(c);
             syms_charging.push_back(c_c);
         }
-        adv_len = syms.size();*/
+        adv_len = syms.size();*//*
+
         const std::string delim = " ";
         auto start = 0U;
         auto end = chars.find(' ');
@@ -339,8 +342,96 @@ void modules::battery(const modules::Updater update, const modules::Options &opt
             } else {
                 update(basic(capacity, charging) + wrap);
             }
+            INFO("[battery] tick");
+            battery_info.wait();
         }
     } while (std::getline(udev_monitor.stdout, line));
+}
+*/
+
+void modules::battery(const modules::Updater update, const modules::Options &options) {
+    INFO("[battery] Started");
+    // TODO: Why doesnt normal statement work?
+    // Some stupid pointer problem.
+    const std::vector<char const *> bat_info{"udevadm", "info", "-p", "/sys/class/power_supply/BAT0"};
+    const std::chrono::duration<int64_t> sleep_time = std::chrono::seconds(60);
+
+    Wrap wrap = colorreturn(options.at("color"), options.at("background"));
+
+
+    const std::string &charge_sym = options.at("charge_sym");
+    const std::string charge_spacer(charge_sym.length(), ' ');
+
+    const std::string &chars = options.at("chars"), &chars_charging = options.at("chars_charging");
+
+    // CANNOT USE `char` with symbol font. Need `
+    std::vector<std::string> syms, syms_charging;
+    size_t adv_len = 0;
+    if (!chars.empty() && !chars_charging.empty()) {//&& (chars.size() == chars_charging.size())) {
+        /*std::basic_istringstream<wchar_t> s(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars)),
+                s_c(std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(chars_charging));
+        wchar_t c, c_c;
+        while ((s >> c) && (s_c >> c_c)) {
+            syms.push_back(c);
+            syms_charging.push_back(c_c);
+        }
+        adv_len = syms.size();*/
+        const std::string delim = " ";
+        auto start = 0U;
+        auto end = chars.find(' ');
+        while (end != std::string::npos) {
+            syms.push_back(chars.substr(start, end - start));
+            start = end + delim.length();
+            end = chars.find(' ', start);
+        }
+
+        start = 0U;
+        end = chars_charging.find(' ');
+        while (end != std::string::npos) {
+            syms_charging.push_back(chars_charging.substr(start, end - start));
+            start = end + delim.length();
+            end = chars_charging.find(' ', start);
+        }
+
+        adv_len = syms.size() > syms_charging.size() ? syms_charging.size() : syms.size();
+    }
+    auto basic = [&charge_sym, &charge_spacer](std::string &capacity, const bool charging) {
+        return (charging ? charge_sym : charge_spacer) + (charge_sym.empty() ? "" : " ") + capacity + "%";
+    };
+
+    auto advanced = [&syms, &syms_charging, &adv_len](const std::string &capacity, const bool charging) {
+        std::vector<std::string> &char_set = (charging ? syms_charging : syms);
+        try {
+            int cap = std::stoi(capacity);
+            return char_set[(size_t) (adv_len * cap / 101)] + "" + capacity + "%";
+        } catch (const std::invalid_argument &e) {
+            return capacity + "%";
+
+        }
+    };
+
+    // udevadm monitor sends three events for charging / discharging. TODO: One update
+    while (modules::is_ok) {
+        Subprocess battery_info(bat_info.data());
+        battery_info.send_eof();
+
+        std::string battery_line, capacity;
+        bool charging = false;
+        while (std::getline(battery_info.stdout, battery_line)) {
+            if (battery_line.rfind("E: POWER_SUPPLY_STATUS=", 0) == 0)
+                charging = battery_line.substr(23) == "Charging";
+            else if (battery_line.rfind("E: POWER_SUPPLY_CAPACITY=", 0) == 0)
+                capacity = battery_line.substr(25);
+        }
+        if (adv_len) {
+            update(advanced(capacity, charging) + wrap);
+        } else {
+            update(basic(capacity, charging) + wrap);
+        }
+        //INFO("[battery] tick");
+        battery_info.wait();
+        std::this_thread::sleep_for(sleep_time);
+    }
 }
 
 #include <i3ipc++/ipc.hpp>
@@ -406,7 +497,7 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
         {i3ipc::WorkspaceEventType::RENAME,   "RENAME"},
         {i3ipc::WorkspaceEventType::RELOAD,   "RELOAD"},
         {i3ipc::WorkspaceEventType::RESTORED, "RESTORED"}
-};*/
+    };*/
     auto on_workspace = [/*&ws_event_to_str,*/ &workspaces, &insertion_num, &title, &print](
             const i3ipc::workspace_event_t &ev) {
         // INFO(ws_event_to_str.at(ev.type) << " " << ev.current->num);
@@ -479,7 +570,18 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
             std::this_thread::sleep_for(reload_sleep_time);
             continue;
         }
+        catch (const i3ipc::errno_error &e) {
+            std::this_thread::sleep_for(reload_sleep_time);
+            continue;
+        }
         break;
     }
+}
+
+const char *const PULSEAUDIO_SUB[] = {"pactl", "subscribe"};
+const char *const PULSEAUDIO_CHECK[] = {"pactl", "subscribe"};
+
+void modules::pulseaudio(const modules::Updater update, const modules::Options &options) {
+
 }
 

@@ -3,6 +3,8 @@
 
 #include <thread>
 
+#include <sstream>
+
 void lemonbar_output_handler(std::istream &stdout) {
     std::string line;
     while (std::getline(stdout, line)) {
@@ -12,13 +14,19 @@ void lemonbar_output_handler(std::istream &stdout) {
 
 void modules::lemonbar(std::mutex &wake_mutex, std::shared_mutex &data_mutex,
                        std::vector<std::unique_ptr<std::string>> &outputs, const Options &options) {
+
+    const std::string opt_g = dynamic_cast<std::ostringstream &>((std::ostringstream()
+            << options.at("width") << "x" << options.at("height") <<
+            "+" << options.at("x") << "+" << options.at("y"))).str();
+
     const char *const lemon_cmd[] = {
             "lemonbar",
             "-n", options.at("name").data(),
             "-f", options.at("font-1").data(),
             "-f", options.at("font-2").data(),
             "-F", options.at("color").data(),
-            "-B", options.at("background").data()
+            "-B", options.at("background").data(),
+            "-g", opt_g.data()
     };
 
 
