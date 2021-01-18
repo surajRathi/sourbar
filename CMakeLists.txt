@@ -17,8 +17,3 @@ target_link_libraries(sourbar Threads::Threads)
 target_link_libraries(sourbar ${I3IPCpp_LIBRARIES})
 
 install(TARGETS sourbar DESTINATION ~/.local/bin)
-
-#add_custom_target(install_${PROJECT_NAME}
-#        "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target install
-#        DEPENDS ${PROJECT_NAME}
-#        COMMENT "Installing ${PROJECT_NAME}")

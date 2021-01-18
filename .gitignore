@@ -6,3 +6,5 @@ cmake-build-release
 
 /lib/i3ipc++/*
 /lib/i3ipc++/*.*
+
+sourbarrc

@@ -110,6 +110,7 @@ namespace modules {
     void network(const Updater update, const Options &options);
 
     const Options battery_options{
+            {"interval",       "10"},
             {"color",          ""},
             {"background",     ""},
             {"charge_sym",     "~"},
