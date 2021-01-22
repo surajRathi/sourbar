@@ -83,6 +83,8 @@ Wrap actionreturn(const std::string &action, const std::string &buttons = "") {
 
 // Modules:
 void modules::clock(modules::Updater update, const Options &options) {
+    INFO("[clock] Started");
+
     const size_t CLOCK_BUFFER_SIZE = 30;
 
     Wrap wrap = colorreturn(options.at("color"), options.at("background"));
@@ -117,6 +119,8 @@ void modules::clock(modules::Updater update, const Options &options) {
 }
 
 void modules::text(const Updater update, const modules::Options &options) {
+    // INFO("[text] Started");
+
     Wrap wrap = colorreturn(options.at("color"), options.at("background"))
                 + actionreturn(options.at("action"));
 
@@ -148,6 +152,8 @@ const char *const NETWORK_COMMAND[] = {"journalctl", "-fu", "systemd-networkd.se
 // Maybe use --no-tail?
 // TODO: use power indicater
 void modules::network(const modules::Updater update, const modules::Options &options) {
+    INFO("[network] Started");
+
     Subprocess journal(NETWORK_COMMAND); // Use popopen?
     journal.send_eof(); // Close STDIN
     std::string line;
@@ -242,6 +248,7 @@ void modules::network(const modules::Updater update, const modules::Options &opt
 
 void modules::battery(const modules::Updater update, const modules::Options &options) {
     INFO("[battery] Started");
+
     // TODO: Why doesnt normal statement work?
     // Some stupid pointer problem.
     std::chrono::duration<int64_t> sleep_time = std::chrono::seconds(60);
