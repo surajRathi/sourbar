@@ -27,16 +27,19 @@ int main() {
     std::vector<std::string> config_files{"sourbarrc"};
 
     char *config_home;
-    if ((config_home = std::getenv("XDG_CONFIG_HOME")) != nullptr) {
-        config_files.push_back(std::string(config_home) + "/sourbar/config");
-        config_files.push_back(std::string(config_home) + "/sourbarrc");
+    if ((config_home = std::getenv("XDG_CONFIG_HOME"))) {
+
+        const auto config_home_str = std::string(config_home);
+        config_files.push_back(config_home_str + "/sourbar/config");
+        config_files.push_back(config_home_str + "/sourbarrc");
     }
 
-    char *home = nullptr;
-    if ((home = std::getenv("HOME")) != nullptr) {
-        config_files.push_back(std::string(home) + "/.config/sourbar/config");
-        config_files.push_back(std::string(home) + "/.config/sourbarrc");
-        config_files.push_back(std::string(home) + "/.sourbarrc");
+    char *home;
+    if ((home = std::getenv("HOME"))) {
+        const auto home_str = std::string(home);
+        config_files.push_back(home_str + "/.config/sourbar/config");
+        config_files.push_back(home_str + "/.config/sourbarrc");
+        config_files.push_back(home_str + "/.sourbarrc");
     }
 #endif
 
@@ -57,21 +60,23 @@ int main() {
             break;
         }
     }
+
     if (!initialized) {
         ERR("Not initialized.");
         exit(1);
     }
 
-    // Handle signals.
+    // TODO: Handle signals.
 
     threads.back().join();
-    ERR("Lemonbar joined!.");
+    ERR("Lemonbar joined!."); // ?
     return 0;
-    for (auto &th : threads)
+
+    /*for (auto &th : threads)
         th.join();
 
     DEB("Finished.");
-    return 0;
+    return 0;*/
 }
 
 
