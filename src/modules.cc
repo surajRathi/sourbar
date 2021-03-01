@@ -428,11 +428,23 @@ void modules::i3(const modules::Updater update, const modules::Options &options)
     auto on_window = [&print, &title](const i3ipc::window_event_t &ev) {
         // INFO("[i3] " << ev.container->name << "___" << ev.container->window_properties.instance << "___" <<
         // INFO("[i3] " << ev.container->name << "___" << ev.container->window_properties.instance << "___" <<
-        // ev.container->window_properties.xclass);
+
+        auto format_title = [](std::string title) {
+            char prev = ' ';
+            for (auto &ch : title) {
+                if (ch == '-' || ch == '_')
+                    ch = ' ';
+                if (prev == ' ')
+                    ch = toupper(ch);
+                prev = ch;
+            }
+            return title;
+        };
+
         if (ev.type == i3ipc::WindowEventType::CLOSE)
-            title = "";
+            title.clear();
         else
-            title = ev.container->window_properties.xclass;
+            title = format_title(ev.container->window_properties.xclass);
         print();
     };
 
